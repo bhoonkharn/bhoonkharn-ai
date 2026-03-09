@@ -1,127 +1,130 @@
 import streamlit as st
 import google.generativeai as genai
 from PIL import Image
-import google.api_core.exceptions as google_exceptions
 import random
 import re
 
-# 1. ตั้งค่าหน้าเว็บและ Branding (BHOON KHARN AI)
+# 1. ตั้งค่าหน้าเว็บและ Branding
 st.set_page_config(page_title="BHOON KHARN AI Analysis", layout="wide")
-
 st.markdown("<h1 style='text-align: center; color: #1E3A8A;'>🏗️ BHOON KHARN AI Analysis</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; color: #666;'>วิเคราะห์งานก่อสร้างและประเมินความเสี่ยงเชิงวิศวกรรม</p>", unsafe_allow_html=True)
 st.divider()
 
 # 2. ระบบ API Key
-def get_all_api_keys():
-    try:
-        keys = []
-        if "GOOGLE_API_KEY" in st.secrets:
-            keys.append(st.secrets["GOOGLE_API_KEY"])
-        for key in st.secrets.keys():
-            if "GOOGLE_API_KEY" in key and st.secrets[key] not in keys:
-                keys.append(st.secrets[key])
-        return keys
-    except:
-        return []
+def get_keys():
+    keys = []
+    if "GOOGLE_API_KEY" in st.secrets:
+        keys.append(st.secrets["GOOGLE_API_KEY"])
+    for k in st.secrets.keys():
+        if "GOOGLE_API_KEY" in k and st.secrets[k] not in keys:
+            keys.append(st.secrets[k])
+    return keys
 
-all_keys = get_all_api_keys()
-
-# 3. โหลดโมเดลแบบซ่อนชื่อรุ่น (White Label)
+# 3. โหลดโมเดลอัจฉริยะ (White Label)
 @st.cache_resource
-def initialize_bhoonkharn_ai(keys):
-    if not keys:
-        return None, "ไม่พบกุญแจในระบบ"
-    
-    random_keys = keys.copy()
-    random.shuffle(random_keys)
-    
-    last_error = ""
-    for key in random_keys:
+def init_ai(keys):
+    if not keys: return None, "ไม่พบกุญแจในระบบ"
+    random.shuffle(keys)
+    for k in keys:
         try:
-            genai.configure(api_key=key)
-            # ดึงชื่อรุ่นที่ดีที่สุดมาใช้เบื้องหลัง
-            available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-            flash_gen = [m for m in available_models if "flash" in m.lower()]
-            target = flash_gen[0] if flash_gen else available_models[0]
-            
+            genai.configure(api_key=k)
+            # ค้นหาโมเดลที่ใช้ได้จริง
+            models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+            target = [m for m in models if "flash" in m.lower()][0] if models else None
+            if not target: continue
             model = genai.GenerativeModel(target)
-            model.generate_content("test") 
-            return model, "พร้อมใช้งาน"
-        except Exception as e:
-            last_error = str(e)
-            continue
-            
-    return None, f"เชื่อมต่อล้มเหลว: {last_error}"
+            model.generate_content("test")
+            return model, "พร้อมวิเคราะห์"
+        except: continue
+    return None, "กุญแจใช้งานไม่ได้"
 
 if "active_model" not in st.session_state:
-    model, status = initialize_bhoonkharn_ai(all_keys)
-    st.session_state.active_model = model
-    st.session_state.conn_status = status
+    m, s = init_ai(get_keys())
+    st.session_state.active_model = m
+    st.session_state.status = s
 
 model = st.session_state.active_model
 
 if "messages" not in st.session_state: st.session_state.messages = []
 if "full_report" not in st.session_state: st.session_state.full_report = ""
-if "suggested_questions" not in st.session_state: st.session_state.suggested_questions = []
+if "suggested_q" not in st.session_state: st.session_state.suggested_q = []
 
-# 4. แถบเครื่องมือด้านซ้าย (Sidebar)
+# 4. แถบเครื่องมือทางซ้าย (Sidebar)
 with st.sidebar:
     st.title("⚙️ BHOON KHARN AI")
-    if model:
-        st.success("🟢 สถานะระบบ: พร้อมใช้งาน")
-    else:
-        st.error(f"🔴 {st.session_state.get('conn_status', 'ขัดข้อง')}")
-        if st.button("🔄 พยายามเชื่อมต่อใหม่"):
-            st.session_state.active_model = None
-            st.rerun()
-            
-    st.divider()
-    analysis_mode = st.radio(
-        "รูปแบบรายงาน:",
-        ["📊 วิเคราะห์เทคนิคและผลกระทบต่อเนื่อง", "🏠 คู่มือสำหรับเจ้าของบ้าน (เข้าใจง่าย)"]
-    )
+    if model: st.success("🟢 ระบบพร้อมใช้งาน")
+    else: st.error(f"🔴 {st.session_state.get('status', 'ขัดข้อง')}")
     
-    if st.button("🗑️ ล้างประวัติการตรวจสอบ", use_container_width=True):
+    if st.button("🔄 พยายามเชื่อมต่อใหม่"):
+        st.session_state.active_model = None
+        st.rerun()
+    st.divider()
+    mode = st.radio("รูปแบบรายงาน:", ["📊 วิเคราะห์เชิงลึก", "🏠 สำหรับเจ้าของบ้าน"])
+    if st.button("🗑️ ล้างประวัติทั้งหมด", use_container_width=True):
         st.session_state.messages = []
         st.session_state.full_report = ""
-        st.session_state.suggested_questions = []
+        st.session_state.suggested_q = []
         st.rerun()
 
-# 5. ส่วนอัปโหลดรูป
-col1, col2 = st.columns(2)
-with col1:
-    blue_file = st.file_uploader("แบบแปลน / สเปกวัสดุอ้างอิง", type=['jpg', 'png', 'jpeg'])
-with col2:
-    site_file = st.file_uploader("ภาพถ่ายหน้างานจริง", type=['jpg', 'png', 'jpeg'])
+# 5. ส่วนอัปโหลด
+c1, c2 = st.columns(2)
+with c1: b_file = st.file_uploader("แบบแปลน / สเปก", type=['jpg', 'png', 'jpeg'])
+with c2: s_file = st.file_uploader("ภาพหน้างานจริง", type=['jpg', 'png', 'jpeg'])
 
-def ask_bhoonkharn(query):
-    if not model:
-        st.error("AI ไม่พร้อมใช้งาน")
-        return
+# ฟังก์ชันจัดการคำถาม
+def ask_ai(query):
+    if not model: return
     st.session_state.messages.append({"role": "user", "content": query})
     with st.chat_message("user"): st.markdown(query)
     with st.chat_message("assistant"):
-        with st.spinner("BHOON KHARN AI กำลังวิเคราะห์เชิงลึก..."):
-            res = model.generate_content(f"ในฐานะที่ปรึกษา BHOON KHARN ตอบคำถามเชิงลึก: {query}")
+        with st.spinner("กำลังวิเคราะห์..."):
+            res = model.generate_content(f"วิเคราะห์เชิงลึกในฐานะ BHOON KHARN: {query}")
             st.markdown(res.text)
             st.session_state.full_report += f"\n\nถาม: {query}\nตอบ: {res.text}"
             st.session_state.messages.append({"role": "assistant", "content": res.text})
 
 # 6. เริ่มการวิเคราะห์
-if st.button("🚀 เริ่มการวิเคราะห์หน้างาน", use_container_width=True):
-    if not model:
-        st.error("กรุณาเชื่อมต่อ API ก่อนเริ่มงาน")
-    elif site_file or blue_file:
-        with st.spinner('กำลังประมวลผลตามมาตรฐาน BHOON KHARN...'):
+if st.button("🚀 เริ่มการวิเคราะห์อัจฉริยะ", use_container_width=True):
+    if not model: st.error("กรุณาเชื่อมต่อ API")
+    elif s_file or b_file:
+        with st.spinner('กำลังประมวลผล...'):
             try:
                 prompt = f"""
-                จงสวมบทบาทนักตรวจสอบหน้างานมืออาชีพจาก BHOON KHARN
-                ห้ามแนะนำตัว ห้ามทักทาย ห้ามทวนคำสั่ง ให้เริ่มรายงานทันทีดังนี้:
+                ห้ามแนะนำตัว ห้ามทักทาย ให้เริ่มรายงานทันทีดังนี้:
+                🔍 [วิเคราะห์หน้างาน]: ระบุงานและสถานะปัจจุบัน
+                ⏱️ [ปัจจัยวิกฤต]: ตรวจสอบเวลา/อายุวัสดุ/ความเสี่ยงที่มองไม่เห็น
+                ⚠️ [ผลกระทบต่อเนื่อง]: Domino Effect และผลเสียต่องบประมาณ
+                🏗️ [มาตรฐานเทคนิค]: มาตรฐานสากล/วสท. ที่เกี่ยวข้อง
+                🏠 [มุมเจ้าของบ้าน]: วิธีเช็คเอง 1-2-3 (ภาษาง่ายๆ)
+                💬 [คำถามชวนคุยต่อ]: แนะนำ 3 คำถามที่ขึ้นต้นด้วย 'ถามช่าง:'
+                รูปแบบ: {mode}
+                """
+                imgs = [Image.open(f) for f in [b_file, s_file] if f]
+                resp = model.generate_content([prompt] + imgs)
+                st.session_state.messages = [{"role": "assistant", "content": resp.text}]
+                st.session_state.full_report = resp.text
+                qs = re.findall(r"ถามช่าง: (.+)", resp.text)
+                st.session_state.suggested_q = [q.strip() for q in qs[:3]]
+                st.rerun()
+            except Exception as e: st.error(f"ผิดพลาด: {e}")
+    else: st.warning("กรุณาอัปโหลดรูปภาพก่อนครับ")
 
-                🔍 [วิเคราะห์หน้างาน]: ระบุหมวดงานและสถานะปัจจุบัน
-                ⏱️ [ปัจจัยวิกฤตที่มองไม่เห็น]: ตรวจสอบ 'เวลา' 'อายุวัสดุ' หรือจุดตายของงานนี้
-                ⚠️ [ผลกระทบต่อเนื่อง (Domino Effect)]: หากจุดนี้พลาด งานถัดไปจะเสียหายอย่างไร
-                🏗️ [มาตรฐานเทคนิคเชิงลึก]: ดึงมาตรฐานวิศวกรรมมาอธิบายเชิงลึก
-                🏠 [มุมเจ้าของบ้าน]: วิธีตรวจเช็คเอง 1-2-3 (ภาษาง่ายๆ)
-                💬 [คำถามชวนคุยต่อ]: แนะนำ 3 คำถามสำคัญที่ขึ้นต้นด้วย 'ถามช่าง:'
+# 7. แสดงผล
+if st.session_state.full_report:
+    st.divider()
+    st.markdown("### 📋 รายงานจาก BHOON KHARN AI")
+    st.download_button("📥 บันทึกรายงาน", st.session_state.full_report, "BK_Report.txt")
+
+    for m in st.session_state.messages:
+        with st.chat_message(m["role"]): st.markdown(m["content"])
+
+    if st.session_state.suggested_q:
+        st.info("💡 **คลิกเพื่อถามรายละเอียดเพิ่ม:**")
+        for q in st.session_state.suggested_q:
+            if st.button(f"🔎 {q}", key=f"q_{hash(q)}", use_container_width=True):
+                ask_ai(q)
+                st.rerun()
+
+    if p_chat := st.chat_input("พิมพ์ถามเพิ่ม..."):
+        ask_ai(p_chat)
+    st.caption("🚨 หมายเหตุ: รายงานเบื้องต้น โปรดปรึกษาวิศวกรหน้างานอีกครั้ง")
