@@ -4,7 +4,7 @@ from PIL import Image
 import random
 import re
 
-# 1. Page Config & Branding
+# 1. Page Config & CSS
 st.set_page_config(page_title="BHOON KHARN AI", layout="wide")
 
 st.markdown("""
@@ -19,7 +19,7 @@ st.markdown("""
 st.markdown("<h1 style='text-align: center; color: #1E3A8A;'>🏗️ BHOON KHARN AI</h1>", unsafe_allow_html=True)
 st.divider()
 
-# 2. Engine & Session States
+# 2. Engine & States
 def get_keys():
     k = [st.secrets["GOOGLE_API_KEY"]] if "GOOGLE_API_KEY" in st.secrets else []
     for key in st.secrets.keys():
@@ -28,7 +28,7 @@ def get_keys():
 
 @st.cache_resource
 def init_engine(keys):
-    if not keys: return None, "No API Key Found"
+    if not keys: return None, "No API Key"
     random.shuffle(keys)
     for p_key in keys:
         try:
@@ -56,84 +56,55 @@ with st.sidebar:
         st.rerun()
     st.divider()
     mode = st.radio("Report Mode:", ["📊 เทคนิคเชิงลึก", "🏠 สำหรับเจ้าของบ้าน"])
-    if st.button("🗑️ Clear All", use_container_width=True):
+    if st.button("🗑️ Clear All History", use_container_width=True):
         st.session_state.chat_history, st.session_state.report, st.session_state.quick_qs = [], "", []
         st.rerun()
 
 # 4. Upload & Preview
-col_l, col_r = st.columns(2)
-with col_l:
-    blue_print = st.file_uploader("📋 แบบแปลน", type=['jpg', 'png', 'jpeg'])
-    if blue_print: st.image(blue_print, caption="Ref", use_container_width=True)
-with col_r:
-    site_img = st.file_uploader("📸 ภาพหน้างาน", type=['jpg', 'png', 'jpeg'])
-    if site_img: st.image(site_img, caption="Site", use_container_width=True)
+c1, c2 = st.columns(2)
+with c1:
+    bp = st.file_uploader("📋 แบบแปลน", type=['jpg', 'png', 'jpeg'])
+    if bp: st.image(bp, caption="Ref", use_container_width=True)
+with c2:
+    site = st.file_uploader("📸 ภาพหน้างาน", type=['jpg', 'png', 'jpeg'])
+    if site: st.image(site, caption="Site", use_container_width=True)
 
-# 5. Analysis Logic
-def run_query(q):
+def run_q(q):
     if not st.session_state.engine: return
     st.session_state.chat_history.append({"role": "user", "content": q})
     res = st.session_state.engine.generate_content("Analyze as BHOON KHARN AI: " + q)
     st.session_state.chat_history.append({"role": "assistant", "content": res.text})
     st.rerun()
 
+# 5. Analysis Execution
 if st.button("🚀 เริ่มการวิเคราะห์อัจฉริยะ", use_container_width=True):
     if not st.session_state.engine: st.error("AI Not Ready")
-    elif site_img or blue_print:
-        with st.spinner('BHOON KHARN AI Analyzing...'):
+    elif site or bp:
+        with st.spinner('Analyzing...'):
             try:
-                p = "คุณคือที่ปรึกษา BHOON KHARN AI วิเคราะห์ภาพนี้เริ่มทันที:\n"
-                p += "🔍 วิเคราะห์หน้างาน: (ระบุงานและสถานะ)\n"
-                p += "⏱️ จุดตายวิกฤต: (ระบุความเสี่ยงแฝง)\n"
-                p += "⚠️ ผลกระทบต่อเนื่อง: (Domino Effect และงบซ่อม)\n"
-                p += "🏗️ มาตรฐานเทคนิค: (วสท./มยผ./สากล)\n"
-                p += "🏠 จุดสังเกตสำคัญสำหรับเจ้าของบ้าน: (สรุปเป็นข้อๆ ใช้ * นำหน้า ห้ามใช้ HTML ห้ามใช้ <br/>)\n"
+                p = "ที่ปรึกษา BHOON KHARN AI วิเคราะห์ภาพเริ่มทันที:\n"
+                p += "🔍 วิเคราะห์หน้างาน: (สถานะ)\n⏱️ จุดตายวิกฤต: (ความเสี่ยง)\n"
+                p += "⚠️ ผลกระทบต่อเนื่อง: (Domino Effect)\n🏗️ มาตรฐานเทคนิค: (วสท.)\n"
+                p += "🏠 จุดสังเกตสำคัญสำหรับเจ้าของบ้าน: (เป็นข้อๆ * นำหน้า ห้ามใช้ HTML)\n"
                 p += "ท้ายรายงานแนะนำ 3 คำถามสั้นๆ เริ่มด้วย 'ถามช่าง:' โหมด: " + mode
-                
                 inputs = [p]
-                if blue_print: inputs.append(Image.open(blue_print))
-                if site_img: inputs.append(Image.open(site_img))
-                
+                if bp: inputs.append(Image.open(bp))
+                if site: inputs.append(Image.open(site))
                 resp = st.session_state.engine.generate_content(inputs)
-                txt = resp.text
-                st.session_state.quick_qs = [q.strip() for q in re.findall(r"ถามช่าง: (.+)", txt)[:3]]
-                st.session_state.report = re.sub(r"ถามช่าง: .*", "", txt, flags=re.DOTALL).strip()
+                st.session_state.quick_qs = [q.strip() for q in re.findall(r"ถามช่าง: (.+)", resp.text)[:3]]
+                st.session_state.report = re.sub(r"ถามช่าง: .*", "", resp.text, flags=re.DOTALL).strip()
                 st.session_state.chat_history = [{"role": "assistant", "content": st.session_state.report}]
                 st.rerun()
             except Exception as e: st.error(str(e))
     else: st.warning("กรุณาอัปโหลดรูปภาพก่อนครับ")
 
-# 6. Display Report
-report_area = st.container()
+# 6. Display Area
+rep_box = st.container()
 if st.session_state.report:
-    with report_area:
+    with rep_box:
         st.divider()
         st.subheader("📋 รายงานวิเคราะห์โดย BHOON KHARN AI")
         r_txt = st.session_state.report
         heads = [("🔍 วิเคราะห์หน้างาน", r"🔍.*?วิเคราะห์หน้างาน"), 
                  ("⏱️ จุดตายวิกฤต", r"⏱️.*?จุดตายวิกฤต"),
-                 ("⚠️ ผลกระทบต่อเนื่อง", r"⚠️.*?ผลกระทบต่อเนื่อง"),
-                 ("🏗️ มาตรฐานเทคนิค", r"🏗️.*?มาตรฐานเทคนิค"),
-                 ("🏠 จุดสังเกตสำคัญสำหรับเจ้าของบ้าน", r"🏠.*?จุดสังเกตสำคัญสำหรับเจ้าของบ้าน")]
-        
-        pos = sorted([(re.search(pat, r_txt).start(), title, re.search(pat, r_txt).end()) 
-                      for title, pat in heads if re.search(pat, r_txt)])
-        
-        if not pos: st.markdown(r_txt)
-        else:
-            for i in range(len(pos)):
-                s = pos[i][2]
-                e = pos[i+1][0] if i+1 < len(pos) else len(r_txt)
-                content = r_txt[s:e].strip().strip(':').strip()
-                if "🏠" in pos[i][1]:
-                    st.markdown(f"#### {pos[i][1]}")
-                    st.markdown(f"<div class='check-box'>{content}</div>", unsafe_allow_html=True)
-                elif "🔍" in pos[i][1]: st.info(content)
-                else:
-                    with st.expander(f"**{pos[i][1]}**"): st.markdown(content)
-
-        st.download_button("📥 บันทึกรายงาน", st.session_state.report, "BK_Report.txt")
-
-        if st.session_state.quick_qs:
-            st.markdown("<p class='q-label'>💡 ถาม BHOON KHARN AI ต่อในประเด็นนี้:</p>", unsafe_allow_html=True)
-            cols = st.columns(len(st.session_state
+                 ("⚠️ ผลกระทบต่อเนื่อง",
