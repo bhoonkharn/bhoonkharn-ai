@@ -5,7 +5,7 @@ from PIL import Image
 # 1. ตั้งค่าหน้าเว็บ
 st.set_page_config(page_title="BHOON KHARN AI", layout="centered")
 st.markdown("<h1 style='text-align: center; color: #333;'>🏗️ BHOON KHARN AI Inspector</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center;'>ระบบช่วยสังเกตการณ์งานก่อสร้างอัจฉริยะ</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center;'>ผู้ช่วยสังเกตการณ์งานก่อสร้าง เพื่อเจ้าของบ้าน</p>", unsafe_allow_html=True)
 
 # 2. ตรวจสอบ API Key
 if "GOOGLE_API_KEY" in st.secrets:
@@ -40,43 +40,50 @@ with col2:
     site_file = st.file_uploader("เลือกรูปหน้างาน", type=['jpg', 'png', 'jpeg'], key="site")
     if site_file: st.image(site_file, use_container_width=True)
 
-# 5. ปุ่มเริ่มตรวจงาน
+# 5. ปุ่มเริ่มงาน
 if st.button("🚀 เริ่มการวิเคราะห์", use_container_width=True):
     if blue_file or site_file:
         with st.spinner('ระบบกำลังประมวลผล...'):
             try:
                 content_to_send = []
                 
-                # กรณีอัปโหลดทั้งคู่
+                # ปรับ Prompt ใหม่ให้ซอฟต์ลงและเน้น "คำแนะนำ"
+                common_instruction = """
+                จากการวิเคราะห์ของ AI ของ BHOON KHARN:
+                หน้าที่ของคุณคือ 'ผู้ช่วยสังเกตการณ์' ให้แก่เจ้าของบ้าน 
+                ไม่ต้องจ้องจับผิดอย่างรุนแรง แต่ให้เน้นการ 'ชี้จุดที่ควรตรวจสอบ' และ 'วิธีตรวจสอบ' 
+                โดยสรุปเป็นข้อๆ ดังนี้:
+                1. สิ่งที่น่าสังเกตในภาพนี้ (ใช้ภาษาสุภาพ ไม่ตัดสินว่าผิดทันที)
+                2. จุดที่เจ้าของบ้านควรสอบถามหรือเช็คกับช่างอีกครั้ง
+                3. วิธีการตรวจสอบเบื้องด้วยตัวเอง (เช่น การใช้ตลับเมตร, การเอาน้ำราด, การมองด้วยสายตา)
+                """
+                
                 if blue_file and site_file:
-                    prompt = "จากการวิเคราะห์ของ AI ของ BHOON KHARN: โปรดเปรียบเทียบภาพแบบแปลนและหน้างานจริง ระบุจุดที่น่าสังเกตว่าอาจไม่ตรงตามแบบหรืออาจมีความผิดพลาดเชิงช่าง"
+                    prompt = common_instruction + "\nช่วยเปรียบเทียบภาพหน้างานกับแบบแปลน และให้คำแนะนำในการตรวจรับงาน"
                     content_to_send = [prompt, Image.open(blue_file), Image.open(site_file)]
                 
-                # กรณีมีเฉพาะรูปหน้างาน
                 elif site_file:
-                    prompt = "จากการวิเคราะห์ของ AI ของ BHOON KHARN: โปรดวิเคราะห์รูปถ่ายงานก่อสร้างนี้ ระบุจุดที่น่าสังเกตว่าอาจไม่เรียบร้อยหรืออาจผิดมาตรฐานงานช่างทั่วไป"
+                    prompt = common_instruction + "\nวิเคราะห์จากภาพหน้างานจริง และแนะนำจุดที่เจ้าของบ้านควรให้ความสำคัญในขั้นตอนนี้"
                     content_to_send = [prompt, Image.open(site_file)]
                 
-                # กรณีมีเฉพาะแบบแปลน
                 else:
-                    prompt = "จากการวิเคราะห์ของ AI ของ BHOON KHARN: โปรดสรุปรายละเอียดสำคัญจากแบบแปลนนี้ เพื่อใช้ในการเตรียมงานหรือตรวจสอบหน้างาน"
+                    prompt = common_instruction + "\nวิเคราะห์แบบแปลนและสรุปจุดสำคัญที่เจ้าของบ้านควรเดินไปดูเมื่อเข้าหน้างาน"
                     content_to_send = [prompt, Image.open(blue_file)]
 
                 response = model.generate_content(content_to_send)
                 
                 st.divider()
-                st.subheader("📋 ผลการวิเคราะห์")
-                # แสดงผลการวิเคราะห์
+                st.subheader("📋 ข้อแนะนำในการตรวจสอบ")
                 st.markdown(response.text)
                 
-                # ข้อความคำเตือนและ Disclaimer ด้านกฎหมาย
+                # Disclaimer ด้านกฎหมาย
                 st.warning("""
-                **⚠️ หมายเหตุสำคัญ:** ข้อมูลข้างต้นเป็นเพียงข้อสังเกตเบื้องต้นจากการวิเคราะห์ของระบบ AI ของ BHOON KHARN เท่านั้น 
-                ผลลัพธ์นี้อาจมีความคลาดเคลื่อนและไม่สามารถนำไปใช้อ้างอิงทางกฎหมายได้ 
-                **เพื่อความถูกต้องและปลอดภัยสูงสุด โปรดตรวจสอบหน้างานร่วมกับวิศวกรควบคุมงานหรือผู้เชี่ยวชาญเฉพาะด้านอีกครั้งก่อนดำเนินการใดๆ**
+                **⚠️ หมายเหตุสำคัญ:** ข้อมูลนี้เป็นเพียงข้อสังเกตเบื้องต้นจากระบบ AI ของ BHOON KHARN 
+                เพื่อช่วยให้เจ้าของบ้านเห็นจุดสำคัญได้ง่ายขึ้นเท่านั้น 
+                **โปรดปรึกษาและตรวจสอบร่วมกับวิศวกรหรือผู้ควบคุมงานโดยตรงทุกครั้งก่อนสรุปผลงาน**
                 """)
                 
             except Exception as e:
                 st.error(f"การประมวลผลล้มเหลว: {e}")
     else:
-        st.warning("กรุณาอัพโหลดรูปอย่างน้อย 1 รูปเพื่อเริ่มการวิเคราะห์ครับ")
+        st.warning("กรุณาอัพโหลดรูปเพื่อเริ่มการวิเคราะห์ครับ")
