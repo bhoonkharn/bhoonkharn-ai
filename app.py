@@ -120,13 +120,4 @@ with col_r:
 def run_query(q):
     if not st.session_state.engine: return
     st.session_state.chat_history.append({"role": "user", "content": q})
-    res = st.session_state.engine.generate_content(f"วิเคราะห์ในฐานะ BHOON KHARN: {q}")
-    st.session_state.chat_history.append({"role": "assistant", "content": res.text})
-    st.rerun()
-
-# 5. ปุ่มเริ่มการวิเคราะห์
-if st.button("🚀 เริ่มการวิเคราะห์อัจฉริยะ", use_container_width=True):
-    if not st.session_state.engine:
-        st.error("AI ไม่พร้อมใช้งาน")
-    elif site_photo or blueprint:
-        with st.spinner('BHOON KHARN AI กำลังประมวลผลข้อมูล
+    res = st.session_
