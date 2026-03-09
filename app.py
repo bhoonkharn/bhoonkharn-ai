@@ -5,10 +5,10 @@ from PIL import Image
 # ตั้งค่าหน้าเว็บให้คลีนแบบ BHOON KHARN
 st.set_page_config(page_title="BHOON KHARN AI", layout="centered")
 
-st.markdown("<h1 style='text-align: center; color: #333;'>🏗️ BHOON KHARN AI Inspector</h1>", unsafe_allow_index=True)
-st.markdown("<p style='text-align: center;'>ระบบตรวจงานก่อสร้างอัจฉริยะ เปรียบเทียบแบบแปลนและหน้างานจริง</p>", unsafe_allow_index=True)
+st.markdown("<h1 style='text-align: center; color: #333;'>🏗️ BHOON KHARN AI Inspector</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center;'>ระบบตรวจงานก่อสร้างอัจฉริยะ เปรียบเทียบแบบแปลนและหน้างานจริง</p>", unsafe_allow_html=True)
 
-# ดึง API Key จากระบบความปลอดภัย (จะตั้งค่าในขั้นตอนถัดไป)
+# ดึง API Key จากระบบความปลอดภัย
 if "GOOGLE_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
 else:
@@ -16,7 +16,7 @@ else:
 
 model = genai.GenerativeModel('gemini-1.5-flash')
 
-# สร้าง 2 ช่องอัพโหลดตามที่พี่ต้องการ
+# สร้าง 2 ช่องอัพโหลด
 col1, col2 = st.columns(2)
 
 with col1:
