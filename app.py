@@ -14,7 +14,7 @@ if "GOOGLE_API_KEY" in st.secrets:
 else:
     st.error("กรุณาตั้งค่า API Key ในระบบก่อนใช้งานครับ")
 
-model = genai.GenerativeModel('gemini-1.5-flash-latest')
+model = genai.GenerativeModel('models/gemini-1.5-flash')
 # สร้าง 2 ช่องอัพโหลด
 col1, col2 = st.columns(2)
 
