@@ -7,7 +7,7 @@ import re
 # 1. ตั้งค่าหน้าเว็บ BHOON KHARN Branding
 st.set_page_config(page_title="BHOON KHARN AI", layout="wide")
 
-# ปรับแต่ง CSS: เน้นความสะอาดตาและสีแดงเลือดหมูสำหรับหมายเหตุ
+# ปรับแต่ง CSS: เน้นความสะอาดตา สีตัวอักษรมาตรฐาน และหมายเหตุสีแดงเลือดหมู
 st.markdown("""
     <style>
     .disclaimer-text {
@@ -20,13 +20,14 @@ st.markdown("""
     }
     .check-box {
         padding: 5px 0 5px 20px;
-        border-left: 4px solid #1E3A8A;
+        border-left: 4px solid #1E3A8A; /* เส้นขอบน้ำเงิน BHOON KHARN */
         margin-bottom: 25px;
-        color: #333;
-        line-height: 1.7;
+        color: #31333F; /* สีตัวอักษรมาตรฐานของ Streamlit */
+        line-height: 1.8;
     }
     .stButton>button {
-        font-size: 0.9rem !important; /* ปรับขนาดปุ่มคำถามให้เล็กลง */
+        font-size: 0.85rem !important; /* ปรับขนาดปุ่มคำถามให้กะทัดรัด */
+        padding: 2px 10px !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -97,20 +98,30 @@ with col_r:
     site_photo = st.file_uploader("📸 ภาพหน้างานจริง", type=['jpg', 'png', 'jpeg'])
     if site_photo: st.image(site_photo, caption="หน้างานจริง", use_container_width=True)
 
+# ฟังก์ชันส่งคำถามต่อเนื่อง
+def run_query(q):
+    if not st.session_state.engine: return
+    st.session_state.chat_history.append({"role": "user", "content": q})
+    res = st.session_state.engine.generate_content(f"วิเคราะห์ในฐานะ BHOON KHARN: {q}")
+    st.session_state.chat_history.append({"role": "assistant", "content": res.text})
+    st.rerun()
+
 # 5. ปุ่มเริ่มการวิเคราะห์
 if st.button("🚀 เริ่มการวิเคราะห์อัจฉริยะ", use_container_width=True):
     if not st.session_state.engine: st.error("AI ไม่พร้อมใช้งาน")
     elif site_photo or blueprint:
         with st.spinner('BHOON KHARN AI กำลังวิเคราะห์ข้อมูล...'):
             try:
-                # Prompt: บังคับให้ส่วนเจ้าของบ้านเป็นข้อๆ พร้อมสัญลักษณ์
+                # Prompt: บังคับให้ใส่เว้นวรรคและขึ้นบรรทัดใหม่ในส่วนเจ้าของบ้าน
                 prompt = f"""
                 วิเคราะห์ภาพในฐานะที่ปรึกษา BHOON KHARN โดยเริ่มทันที:
                 🔍 [วิเคราะห์หน้างาน]: (ระบุงานและสถานะ)
                 ⏱️ [จุดตายวิกฤต]: (ความเสี่ยงแฝงที่ต้องระวัง)
                 ⚠️ [ผลกระทบต่อเนื่อง]: (Domino Effect และงบซ่อมแซม)
                 🏗️ [มาตรฐานเทคนิค]: (วสท./มยผ./สากล)
-                🏠 [จุดสังเกตสำคัญสำหรับเจ้าของบ้าน]: (สรุปเป็นข้อๆ พร้อมใส่สัญลักษณ์ Emoji นำหน้าแต่ละข้อให้อ่านง่าย)
+                🏠 [จุดสังเกตสำคัญสำหรับเจ้าของบ้าน]: 
+                (สรุปเป็นข้อๆ โดยใช้ Emoji นำหน้า และต้อง 'ขึ้นบรรทัดใหม่ 2 ครั้ง' ทุกครั้งที่จบแต่ละข้อ เพื่อให้แยกจากกันชัดเจน)
+                
                 แนะนำ 3 คำถามสั้นๆ เริ่มด้วย 'ถามช่าง:' (ห้ามแสดงหัวข้อคำถามในเนื้อหา)
                 โหมด: {mode}
                 """
@@ -149,25 +160,25 @@ if st.session_state.final_report:
             if "🔍" in title:
                 st.info(content)
             elif "🏠" in title:
-                # แสดงค้างไว้ตลอด แบบไม่มีพื้นหลังจ้า
+                # แสดงค้างไว้ตลอด ปรับสีตัวอักษรให้เหมือนมาตรฐาน และบังคับแยกบรรทัด
                 st.markdown(f"#### {title}")
-                st.markdown(f"<div class='check-box'>{content}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='check-box'>", unsafe_allow_html=True)
+                st.markdown(content) # ใช้ Markdown ปกติข้างในเพื่อรักษา List
+                st.markdown(f"</div>", unsafe_allow_html=True)
             else:
                 with st.expander(f"**{title} (คลิกดูรายละเอียด)**"):
                     st.markdown(content)
     
     st.download_button("📥 บันทึกรายงาน (TXT)", st.session_state.final_report, "BK_Report.txt")
 
-    # ปุ่มคำถามด่วน (Quick Reply) - ลดขนาดความใหญ่ด้วย CSS
+    # ปุ่มคำถามด่วน (Quick Reply)
     if st.session_state.quick_qs:
+        st.write("")
         st.markdown("<p style='font-size: 0.9rem; font-weight: bold;'>💡 ถาม BHOON KHARN AI ต่อในประเด็นนี้:</p>", unsafe_allow_html=True)
         cols = st.columns(len(st.session_state.quick_qs))
         for idx, q in enumerate(st.session_state.quick_qs):
             if cols[idx].button(f"🔎 {q}", key=f"q_{idx}", use_container_width=True):
-                st.session_state.chat_history.append({"role": "user", "content": q})
-                res = st.session_state.engine.generate_content(f"วิเคราะห์ในฐานะ BHOON KHARN: {q}")
-                st.session_state.chat_history.append({"role": "assistant", "content": res.text})
-                st.rerun()
+                run_query(q)
 
     # แสดงประวัติแชท
     if len(st.session_state.chat_history) > 1:
@@ -177,10 +188,7 @@ if st.session_state.final_report:
                 st.markdown(msg["content"])
 
     if user_q := st.chat_input("พิมพ์คำถามอื่นๆ..."):
-        st.session_state.chat_history.append({"role": "user", "content": user_q})
-        res = st.session_state.engine.generate_content(f"วิเคราะห์ในฐานะ BHOON KHARN: {user_q}")
-        st.session_state.chat_history.append({"role": "assistant", "content": res.text})
-        st.rerun()
+        run_query(user_q)
     
     # 7. ข้อกำหนดการใช้งาน (Disclaimer สีแดงเลือดหมู)
     st.markdown(f"""
