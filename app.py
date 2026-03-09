@@ -7,8 +7,8 @@ import random
 # 1. ตั้งค่าหน้าเว็บ
 st.set_page_config(page_title="BHOON KHARN AI", layout="centered")
 
-st.markdown("<h1 style='text-align: center; color: #333;'>🏗️ BHOON KHARN AI Inspector</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #666;'>ที่ปรึกษาอัจฉริยะเคียงข้างเจ้าของบ้าน โดย BHOON KHARN</p>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; color: #333;'>🏗️ BHOON KHARN AI Analysis</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #666;'>วิเคราะห์งานก่อสร้างด้วยมาตรฐานวิศวกรรมสากล</p>", unsafe_allow_html=True)
 
 # 2. ระบบสลับ API Key (Key Rotation)
 all_keys = [v for k, v in st.secrets.items() if "GOOGLE_API_KEY" in k]
@@ -29,55 +29,57 @@ def find_available_model():
 
 model = genai.GenerativeModel(find_available_model())
 
-# --- ระบบเก็บข้อมูลใน Session สำหรับแชท ---
+# ระบบ Session สำหรับแชท
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "analysis_done" not in st.session_state:
     st.session_state.analysis_done = False
 
-# 4. เมนูเลือกรูปแบบการวิเคราะห์
-st.markdown("### 🛠️ รูปแบบข้อมูลที่คุณต้องการ")
+# 4. เมนูเลือกรูปแบบการวิเคราะห์ (2 หัวข้อตามที่พี่ต้องการ)
+st.markdown("### 🛠️ เลือกรูปแบบการนำเสนอข้อมูล")
 analysis_mode = st.radio(
-    "เลือกตามความต้องการ:",
-    ["⚡ วิเคราะห์เชิงลึกและงานที่เกี่ยวพัน (Technical Focus)", 
-     "🏠 คู่มือเช็คหน้างานสำหรับเจ้าของบ้าน (Easy Guide)"],
-    index=1
+    "รูปแบบที่คุณต้องการ:",
+    ["🔍 วิเคราะห์ทางเทคนิคและลำดับงาน (Technical Insight)", 
+     "🏠 คู่มือตรวจรับงานฉบับเข้าใจง่าย (Quick Checklist)"],
+    index=0
 )
 
 # 5. ส่วนอัปโหลดรูป
 col1, col2 = st.columns(2)
 with col1:
-    blue_file = st.file_uploader("แบบแปลน (เพื่ออ้างอิง)", type=['jpg', 'png', 'jpeg'], key="blue")
+    blue_file = st.file_uploader("แบบก่อสร้างอ้างอิง", type=['jpg', 'png', 'jpeg'], key="blue")
     if blue_file: st.image(blue_file, use_container_width=True)
 with col2:
-    site_file = st.file_uploader("รูปหน้างานจริง", type=['jpg', 'png', 'jpeg'], key="site")
+    site_file = st.file_uploader("ภาพถ่ายหน้างานจริง", type=['jpg', 'png', 'jpeg'], key="site")
     if site_file: st.image(site_file, use_container_width=True)
 
-# 6. Prompt วิชาช่าง (BHOON KHARN Knowledge Base)
-# ใส่ข้อมูลที่คุณต้องการให้ AI ทราบและใช้ในการตอบ
-bhoonkharn_knowledge = """
-วิชาช่างและมาตรฐานจาก BHOON KHARN ที่คุณต้องใช้:
-1. งานระบบไฟฟ้า: บล็อกไฟฝังผนังก่อนฉาบ ควรมีระยะห่างจากหน้าอิฐประมาณ 3 ซม. เพื่อให้พอดีกับความหนาปูนฉาบ
-2. งานระบบประปาห้องน้ำ: ท่อควรฝังลึกเพียงพอ โดยเผื่อความหนากระเบื้อง (ประมาณ 1 ซม.) และปูนกาว (ประมาณ 0.5 ซม.) ระยะรวมควรให้หน้าวาล์วพอดีกับผิววัสดุ
-3. งานผนัง: ระยะเวลาทิ้งให้ปูนฉาบแห้งตัว (Curing) คือ 14-21 วันก่อนทาสี เพื่อป้องกันสีพองหรือด่าง
-4. งานคอนกรีต: ห้ามเติมน้ำหน้างานเด็ดขาด เพราะจะทำให้กำลังอัด (Strength) ลดลง
-"""
-
-# 7. ปุ่มเริ่มวิเคราะห์
+# 6. ปุ่มเริ่มวิเคราะห์
 if st.button("🚀 เริ่มการวิเคราะห์", use_container_width=True):
     if site_file or blue_file:
-        with st.spinner('BHOON KHARN AI กำลังประมวลผล...'):
+        with st.spinner('ระบบกำลังรวบรวมข้อมูลมาตรฐานวิศวกรรม...'):
             try:
-                common_instruction = f"""
-                คุณคือที่ปรึกษาเทคนิคของ BHOON KHARN (สุภาพ, มืออาชีพ, ไม่แทนตัวว่าเป็นอาจารย์)
-                {bhoonkharn_knowledge}
-                กฎ: วิเคราะห์ตามรูปจริง, ไม่ฟันธงเด็ดขาดใช้คำว่า 'น่าสังเกตว่า', เน้นการเตรียมตัวสู่งานถัดไป
+                # Prompt ใหม่: ปลดล็อกความรู้ AI และปรับจูนแนวทาง BHOON KHARN
+                common_instruction = """
+                คุณคือ 'BHOON KHARN AI Analysis' ระบบวิเคราะห์งานก่อสร้างอัจฉริยะ 
+                
+                หน้าที่ของคุณ:
+                1. ใช้ความรู้วิศวกรรมโยธาและสถาปัตยกรรมของคุณทั้งหมดในการวิเคราะห์ภาพ (ห้ามจำกัดความรู้)
+                2. หากเป็นงานไฟฟ้า: ให้ความสำคัญกับระยะห่างระหว่างบล็อกไฟ (ควรห่าง 3 ซม. เพื่อความสวยงามของหน้ากาก)
+                3. หากเป็นงานก่อนฉาบ: เตือนเรื่องการติดตาข่ายกันร้าว (Fiber Mesh) ทุกครั้งเพื่อป้องกันรอยร้าว
+                4. หากเป็นงานปูน: ย้ำเรื่องการบ่มตัว (Curing) 14-21 วัน และห้ามเติมน้ำในคอนกรีต
+                5. ใช้ภาษาสุภาพ เป็นมืออาชีพ (ไม่ต้องใช้ ศิษย์/อาจารย์)
+                
+                โครงสร้างการตอบ:
+                - วิเคราะห์สิ่งที่เห็น (What is it?)
+                - ข้อสังเกตเชิงเทคนิค (Technical Observations) โดยอ้างอิงมาตรฐาน วสท./มยผ. หรือมาตรฐานสากล
+                - งานที่ต้องดำเนินการต่อและสิ่งที่ต้องระวัง (Next Steps & Precautions)
+                - แหล่งศึกษาเพิ่มเติม (ลิงก์ หรือ Keywords)
                 """
                 
-                if "วิเคราะห์เชิงลึก" in analysis_mode:
-                    mode_prompt = f"{common_instruction}\nเน้นรายละเอียดเชิงช่างและการเชื่อมโยงงานถัดไป อ้างอิงมาตรฐาน วสท./มยผ."
+                if "วิเคราะห์ทางเทคนิค" in analysis_mode:
+                    mode_prompt = f"{common_instruction}\nเน้นการเชื่อมโยงงานปัจจุบันกับงานที่จะตามมาในอนาคตเพื่อให้เจ้าของบ้านเตรียมตัวถูก"
                 else:
-                    mode_prompt = f"{common_instruction}\nเน้นวิธีเช็คด้วยตัวเอง 1-2-3 สำหรับเจ้าของบ้านที่ไม่รู้เรื่องช่าง"
+                    mode_prompt = f"{common_instruction}\nเน้นสรุปเป็นข้อๆ เข้าใจง่าย บอกวิธีตรวจสอบด้วยตัวเองแบบ 1-2-3"
 
                 images = []
                 if blue_file: images.append(Image.open(blue_file))
@@ -85,42 +87,33 @@ if st.button("🚀 เริ่มการวิเคราะห์", use_con
 
                 response = model.generate_content([mode_prompt] + images)
                 
-                # เก็บผลลัพธ์ลง Session
                 st.session_state.messages = [{"role": "assistant", "content": response.text}]
                 st.session_state.analysis_done = True
                 
             except Exception as e:
                 st.error(f"เกิดข้อผิดพลาด: {e}")
     else:
-        st.warning("กรุณาอัพโหลดรูปภาพก่อนครับ")
+        st.warning("กรุณาอัปโหลดรูปภาพก่อนครับ")
 
-# 8. แสดงผลการวิเคราะห์และระบบแชทถามตอบ
+# 7. แสดงผลและระบบแชท
 if st.session_state.analysis_done:
     st.divider()
     st.markdown("### 📋 ผลการวิเคราะห์จาก BHOON KHARN AI")
     
-    # แสดงประวัติแชท
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    # ช่องแชทถามต่อ (Chat Input)
-    if prompt := st.chat_input("สงสัยจุดไหน สอบถามที่ปรึกษา AI เพิ่มเติมได้เลยครับ..."):
+    if prompt := st.chat_input("มีข้อสงสัยเกี่ยวกับงานส่วนนี้ สอบถามเพิ่มเติมได้ครับ..."):
         with st.chat_message("user"):
             st.markdown(prompt)
         st.session_state.messages.append({"role": "user", "content": prompt})
 
         with st.chat_message("assistant"):
-            with st.spinner("กำลังหาคำตอบให้ครับ..."):
-                # ส่งรูป + ประวัติแชท + คำถามใหม่ ให้ AI
-                chat_context = [f"คุณคือที่ปรึกษา BHOON KHARN ข้อมูลช่าง: {bhoonkharn_knowledge}"]
-                if blue_file: chat_context.append(Image.open(blue_file))
-                if site_file: chat_context.append(Image.open(site_file))
-                chat_context.append(f"คำถามจากลูกค้า: {prompt}")
-                
-                chat_response = model.generate_content(chat_context)
+            with st.spinner("กำลังประมวลผลคำตอบ..."):
+                chat_response = model.generate_content([f"คุณคือ BHOON KHARN AI Analysis ตอบคำถามนี้โดยใช้ความรู้วิศวกรรมของคุณ: {prompt}"])
                 st.markdown(chat_response.text)
         st.session_state.messages.append({"role": "assistant", "content": chat_response.text})
 
     st.divider()
-    st.caption("🚨 AI เป็นผู้ช่วยสังเกตการณ์เบื้องต้น โปรดปรึกษาวิศวกรของท่านเพื่อความถูกต้องตามหลักวิศวกรรม")
+    st.caption("🚨 หมายเหตุ: ผลวิเคราะห์นี้เป็นเพียงการสังเกตการณ์เบื้องต้น โปรดปรึกษาวิศวกรของท่านเพื่อความถูกต้องตามหลักวิศวกรรม")
