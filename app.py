@@ -7,7 +7,7 @@ import re
 # 1. ตั้งค่าหน้าเว็บ BHOON KHARN Branding
 st.set_page_config(page_title="BHOON KHARN AI", layout="wide")
 st.markdown("<h1 style='text-align: center; color: #1E3A8A;'>🏗️ BHOON KHARN AI Analysis</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #666;'>วิเคราะห์งานก่อสร้างและประเมินความเสี่ยงเชิงวิศวกรรม</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #666;'>วิเคราะห์งานก่อสร้างและประเมินความเสี่ยงอัจฉริยะ</p>", unsafe_allow_html=True)
 st.divider()
 
 # 2. ระบบจัดการ API Key
@@ -21,11 +21,11 @@ def get_working_keys():
     return keys
 
 @st.cache_resource
-def init_bhoonkharn_engine(keys):
+def init_engine(keys):
     if not keys: return None, "ไม่พบ API Key"
-    shuffled_keys = keys.copy()
-    random.shuffle(shuffled_keys)
-    for k in shuffled_keys:
+    shuffled = keys.copy()
+    random.shuffle(shuffled)
+    for k in shuffled:
         try:
             genai.configure(api_key=k)
             models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
@@ -37,13 +37,10 @@ def init_bhoonkharn_engine(keys):
         except: continue
     return None, "การเชื่อมต่อล้มเหลว"
 
-# ตรวจสอบสถานะการเชื่อมต่อ
-if "active_engine" not in st.session_state:
-    engine, status = init_bhoonkharn_engine(get_working_keys())
-    st.session_state.active_engine = engine
-    st.session_state.status_msg = status
-
-engine = st.session_state.active_engine
+if "engine" not in st.session_state:
+    engine, status = init_engine(get_working_keys())
+    st.session_state.engine = engine
+    st.session_state.status = status
 
 # ระบบ Session ข้อมูล
 if "chat_history" not in st.session_state: st.session_state.chat_history = []
@@ -52,12 +49,12 @@ if "quick_qs" not in st.session_state: st.session_state.quick_qs = []
 
 # 3. แถบเครื่องมือด้านซ้าย (Sidebar)
 with st.sidebar:
-    st.title("⚙️ การตั้งค่าระบบ")
-    if engine: st.success("🟢 BHOON KHARN AI: พร้อมใช้งาน")
-    else: st.error(f"🔴 สถานะ: {st.session_state.get('status_msg', 'ขัดข้อง')}")
+    st.title("⚙️ BHOON KHARN AI")
+    if st.session_state.engine: st.success("🟢 ระบบพร้อมใช้งาน")
+    else: st.error(f"🔴 {st.session_state.get('status', 'ขัดข้อง')}")
     
-    if st.button("🔄 รีเซ็ตการเชื่อมต่อ"):
-        st.session_state.active_engine = None
+    if st.button("🔄 รีเซ็ตระบบ"):
+        st.session_state.engine = None
         st.rerun()
     st.divider()
     mode = st.radio("โหมดรายงาน:", ["📊 เทคนิคเชิงลึก", "🏠 สำหรับเจ้าของบ้าน"])
@@ -67,73 +64,103 @@ with st.sidebar:
         st.session_state.quick_qs = []
         st.rerun()
 
-# 4. ส่วนอัปโหลดและพรีวิวรูปภาพ
-col_left, col_right = st.columns(2)
-with col_left:
+# 4. ส่วนอัปโหลดและพรีวิวรูปภาพ (แก้ไขให้แสดงรูปแน่นอน)
+col_l, col_r = st.columns(2)
+with col_l:
     blueprint = st.file_uploader("📋 อัปโหลดแบบแปลน / สเปก", type=['jpg', 'png', 'jpeg'])
     if blueprint: st.image(blueprint, caption="แบบอ้างอิง", use_container_width=True)
-with col_right:
+with col_r:
     site_photo = st.file_uploader("📸 อัปโหลดภาพหน้างานจริง", type=['jpg', 'png', 'jpeg'])
     if site_photo: st.image(site_photo, caption="หน้างานจริง", use_container_width=True)
 
 # ฟังก์ชันส่งคำถามต่อเนื่อง
 def run_query(q):
-    if not engine: return
+    if not st.session_state.engine: return
     st.session_state.chat_history.append({"role": "user", "content": q})
     with st.chat_message("user"): st.markdown(q)
     with st.chat_message("assistant"):
-        with st.spinner("กำลังวิเคราะห์..."):
-            res = engine.generate_content(f"วิเคราะห์เชิงลึกในฐานะ BHOON KHARN AI: {q}")
+        with st.spinner("BHOON KHARN AI กำลังวิเคราะห์..."):
+            res = st.session_state.engine.generate_content(f"วิเคราะห์ในฐานะ BHOON KHARN: {q}")
             st.markdown(res.text)
-            st.session_state.final_report += f"\n\nถาม: {q}\nตอบ: {res.text}"
             st.session_state.chat_history.append({"role": "assistant", "content": res.text})
 
 # 5. ปุ่มเริ่มการวิเคราะห์
 if st.button("🚀 เริ่มการวิเคราะห์อัจฉริยะ", use_container_width=True):
-    if not engine: st.error("ระบบ AI ไม่พร้อมใช้งาน กรุณาตรวจสอบ API Key")
+    if not st.session_state.engine: st.error("AI ไม่พร้อมใช้งาน")
     elif site_photo or blueprint:
-        with st.spinner('BHOON KHARN AI กำลังประมวลผลข้อมูลทางวิศวกรรม...'):
+        with st.spinner('กำลังประมวลผลข้อมูล...'):
             try:
                 prompt = f"""
-                ห้ามแนะนำตัว ห้ามทักทาย ให้เริ่มรายงานทันทีที่หัวข้อแรก:
-                🔍 [วิเคราะห์หน้างาน]: ระบุงานและสถานะปัจจุบัน
-                ⏱️ [จุดตายที่ต้องระวัง]: วิเคราะห์เรื่องเวลา อายุวัสดุ และความเสี่ยงแฝง
-                ⚠️ [ผลกระทบต่อเนื่อง]: Domino Effect หากพลาดจุดนี้จะกระทบงานไหนและงบเท่าไหร่
-                🏗️ [มาตรฐานเทคนิค]: มาตรฐาน วสท./สากล ที่ต้องใช้เช็ค
-                🏠 [วิธีเช็คเอง 1-2-3]: ขั้นตอนตรวจสอบง่ายๆ สำหรับเจ้าของบ้าน
-                💬 [คำถามถามต่อ]: แนะนำ 3 คำถามสั้นๆ (ไม่เกิน 15 คำ) เริ่มด้วย 'ถามช่าง:'
-                รูปแบบ: {mode}, ใช้ Emoji, เน้นตัวหนาจุดวิกฤต
+                ห้ามแนะนำตัว ห้ามทักทาย ให้เริ่มรายงานทันที
+                ห้ามแสดงหัวข้อ 'คำถามชวนคุยต่อ' ในเนื้อหาข้อความ
+                
+                โครงสร้างที่ต้องการ:
+                🔍 [วิเคราะห์หน้างาน]: (สรุปสั้น 1-2 บรรทัด)
+                ⏱️ [จุดตายวิกฤต]: (รายละเอียดความเสี่ยงและสิ่งที่ต้องระวัง)
+                ⚠️ [ผลกระทบต่อเนื่อง]: (Domino Effect และงบประมาณซ่อมแซม)
+                🏗️ [มาตรฐานเทคนิค]: (มาตรฐาน วสท./สากล ที่เกี่ยวข้อง)
+                🏠 [วิธีเช็คเอง 1-2-3]: (ขั้นตอนง่ายๆ สำหรับเจ้าของบ้าน)
+                
+                ท้ายที่สุด ให้เขียนคำแนะนำ 3 ข้อสั้นๆ โดยขึ้นต้นด้วย 'ถามช่าง:' เพื่อทำปุ่ม
+                โหมด: {mode}, เน้นกระชับแต่แม่นยำ
                 """
                 imgs = [Image.open(f) for f in [blueprint, site_photo] if f]
-                resp = engine.generate_content([prompt] + imgs)
-                st.session_state.chat_history = [{"role": "assistant", "content": resp.text}]
-                st.session_state.final_report = resp.text
-                # ดึงคำถามมาทำปุ่ม
-                found_qs = re.findall(r"ถามช่าง: (.+)", resp.text)
+                resp = st.session_state.engine.generate_content([prompt] + imgs)
+                full_text = resp.text
+                
+                # แยกคำถามออกมาทำปุ่ม และลบทิ้งจากเนื้อหาหลัก
+                found_qs = re.findall(r"ถามช่าง: (.+)", full_text)
                 st.session_state.quick_qs = [q.strip() for q in found_qs[:3]]
+                clean_report = re.sub(r"ถามช่าง: .*", "", full_text).strip()
+                
+                st.session_state.final_report = clean_report
+                st.session_state.chat_history = [{"role": "assistant", "content": clean_report}]
                 st.rerun()
-            except Exception as e: st.error(f"เกิดข้อผิดพลาด: {e}")
-    else: st.warning("กรุณาอัปโหลดรูปภาพอย่างน้อย 1 รูปครับ")
+            except Exception as e: st.error(f"ผิดพลาด: {e}")
+    else: st.warning("กรุณาอัปโหลดรูปภาพก่อนครับ")
 
-# 6. แสดงผลลัพธ์และระบบถามตอบ
+# 6. ฟังก์ชันจัดการการแสดงผลแบบพับเก็บได้ (Smart Report)
+def render_report(text):
+    # แยกหัวข้อด้วย Regex
+    patterns = {
+        "🔍 วิเคราะห์หน้างาน": r"🔍 \[วิเคราะห์หน้างาน\]:(.*?)(?=⏱️|⚠️|🏗️|🏠|$)",
+        "⏱️ จุดตายวิกฤต": r"⏱️ \[จุดตายวิกฤต\]:(.*?)(?=⚠️|🏗️|🏠|$)",
+        "⚠️ ผลกระทบต่อเนื่อง": r"⚠️ \[ผลกระทบต่อเนื่อง\]:(.*?)(?=🏗️|🏠|$)",
+        "🏗️ มาตรฐานเทคนิค": r"🏗️ \[มาตรฐานเทคนิค\]:(.*?)(?=🏠|$)",
+        "🏠 วิธีเช็คเอง 1-2-3": r"🏠 \[วิธีเช็คเอง 1-2-3\]:(.*?)$"
+    }
+    
+    for title, pattern in patterns.items():
+        match = re.search(pattern, text, re.DOTALL)
+        if match:
+            content = match.group(1).strip()
+            if "🔍" in title: # ส่วนวิเคราะห์หน้างานให้โชว์เลย
+                st.markdown(f"### {title}")
+                st.info(content)
+            else: # ส่วนอื่นๆ ให้พับไว้
+                with st.expander(f"**{title} (คลิกดูรายละเอียด)**"):
+                    st.markdown(content)
+
+# 7. แสดงผลรายงานและระบบถามตอบ
 if st.session_state.final_report:
     st.divider()
-    st.markdown("### 📋 รายงานสรุปโดย BHOON KHARN AI")
-    st.download_button("📥 ดาวน์โหลดรายงาน (.txt)", st.session_state.final_report, "BK_Analysis.txt")
+    st.markdown("### 📋 ผลการตรวจสอบ")
+    
+    # แสดงรายงานแบบ Smart (Expanders) เฉพาะข้อความแรก
+    render_report(st.session_state.final_report)
+    
+    st.download_button("📥 บันทึกรายงาน", st.session_state.final_report, "BK_Report.txt")
 
-    for msg in st.session_state.chat_history:
-        with st.chat_message(msg["role"]): st.markdown(msg["content"])
-
-    # ปุ่มคำถามด่วน (Quick Reply)
+    # ปุ่มคำถามด่วน (Quick Reply) - ปรับให้สั้น
     if st.session_state.quick_qs:
-        st.write("---")
-        st.info("💡 **คำถามแนะนำ (คลิกเพื่อถามต่อ):**")
-        for q_text in st.session_state.quick_qs:
-            if st.button(f"🔎 {q_text}", key=f"btn_{hash(q_text)}", use_container_width=True):
-                run_query(q_text)
+        st.write("")
+        st.markdown("##### 💡 ถาม BHOON KHARN AI ต่อในประเด็นนี้:")
+        for q in st.session_state.quick_qs:
+            if st.button(f"🔎 {q}", key=f"q_{hash(q)}", use_container_width=True):
+                run_query(q)
                 st.rerun()
 
-    if user_q := st.chat_input("พิมพ์คำถามเพิ่มเติมที่นี่..."):
+    if user_q := st.chat_input("พิมพ์คำถามอื่นๆ..."):
         run_query(user_q)
-
-    st.caption("🚨 หมายเหตุ: รายงานเบื้องต้นเพื่อการสังเกตการณ์ โปรดปรึกษาวิศวกรหน้างานเพื่อความถูกต้อง 100%")
+    
+    st.caption("🚨 หมายเหตุ: รายงานเบื้องต้น โปรดปรึกษาวิศวกรหน้างานอีกครั้ง")
