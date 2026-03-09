@@ -7,7 +7,7 @@ import re
 # 1. ตั้งค่าหน้าเว็บ BHOON KHARN Branding
 st.set_page_config(page_title="BHOON KHARN AI", layout="wide")
 
-# ปรับแต่ง CSS: เน้นความสะอาดตา และลดขนาดส่วนถามตอบไม่ให้เด่นเกินไป
+# CSS: จัดการความสะอาดตา สีตัวอักษร และลดขนาดส่วนถามต่อ
 st.markdown("""
     <style>
     .disclaimer-text {
@@ -22,23 +22,22 @@ st.markdown("""
         padding: 5px 0 5px 20px;
         border-left: 4px solid #1E3A8A;
         margin-bottom: 25px;
-        color: #31333F;
+        color: #31333F; /* สีมาตรฐาน */
         line-height: 1.8;
     }
-    /* ปรับขนาดปุ่มคำถามให้เล็กลงและสะอาดตาที่สุด */
+    /* ปุ่มคำถามด่วน: เล็กและสะอาดตา */
     .stButton>button {
         font-size: 0.75rem !important; 
-        padding: 1px 10px !important;
-        min-height: 28px !important;
-        height: 28px !important;
-        border-radius: 5px !important;
+        padding: 2px 8px !important;
+        min-height: 26px !important;
+        height: 26px !important;
+        border-radius: 4px !important;
     }
     .quick-q-label {
-        font-size: 0.8rem !important;
-        color: #666;
-        font-weight: bold;
+        font-size: 0.75rem !important;
+        color: #888;
         margin-bottom: 5px;
-        margin-top: 15px;
+        margin-top: 20px;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -83,9 +82,9 @@ if "chat_history" not in st.session_state: st.session_state.chat_history = []
 if "final_report" not in st.session_state: st.session_state.final_report = ""
 if "quick_qs" not in st.session_state: st.session_state.quick_qs = []
 
-# 3. Sidebar แถบซ้าย
+# 3. Sidebar
 with st.sidebar:
-    st.title("⚙️ BHOON KHARN AI")
+    st.title("⚙️ การตั้งค่าระบบ")
     if st.session_state.engine: st.success("🟢 ระบบพร้อมใช้งาน")
     else: st.error(f"🔴 {st.session_state.get('status', 'ขัดข้อง')}")
     
@@ -100,7 +99,7 @@ with st.sidebar:
         st.session_state.quick_qs = []
         st.rerun()
 
-# 4. ส่วนอัปโหลดและพรีวิวรูปภาพ
+# 4. ส่วนอัปโหลดรูปภาพ (ประจำที่แน่นอน)
 col_l, col_r = st.columns(2)
 with col_l:
     blueprint = st.file_uploader("📋 แบบแปลน / สเปก", type=['jpg', 'png', 'jpeg'])
@@ -111,4 +110,42 @@ with col_r:
 
 # ฟังก์ชันส่งคำถามต่อเนื่อง
 def run_query(q):
-    if
+    if not st.session_state.engine: return
+    st.session_state.chat_history.append({"role": "user", "content": q})
+    res = st.session_state.engine.generate_content(f"วิเคราะห์ในฐานะ BHOON KHARN: {q}")
+    st.session_state.chat_history.append({"role": "assistant", "content": res.text})
+    st.rerun()
+
+# 5. ปุ่มเริ่มการวิเคราะห์
+if st.button("🚀 เริ่มการวิเคราะห์อัจฉริยะ", use_container_width=True):
+    if not st.session_state.engine: st.error("AI ไม่พร้อมใช้งาน")
+    elif site_photo or blueprint:
+        with st.spinner('BHOON KHARN AI กำลังประมวลผล...'):
+            try:
+                prompt = f"""
+                วิเคราะห์ภาพในฐานะที่ปรึกษา BHOON KHARN โดยเริ่มทันที:
+                🔍 [วิเคราะห์หน้างาน]: (ระบุงานและสถานะ)
+                ⏱️ [จุดตายวิกฤต]: (ความเสี่ยงแฝง)
+                ⚠️ [ผลกระทบต่อเนื่อง]: (Domino Effect และงบซ่อม)
+                🏗️ [มาตรฐานเทคนิค]: (วสท./มยผ./สากล)
+                🏠 [จุดสังเกตสำคัญสำหรับเจ้าของบ้าน]: 
+                (สรุปเป็นข้อๆ โดยใช้ Emoji นำหน้า และต้องขึ้นบรรทัดใหม่ 2 ครั้งทุกครั้งที่จบข้อเพื่อให้อ่านง่าย)
+                
+                แนะนำ 3 คำถามสั้นๆ เริ่มด้วย 'ถามช่าง:' (ห้ามแสดงหัวข้อคำถามในเนื้อหา)
+                โหมด: {mode}
+                """
+                imgs = [Image.open(f) for f in [blueprint, site_photo] if f]
+                resp = st.session_state.engine.generate_content([prompt] + imgs)
+                full_text = resp.text
+                
+                found_qs = re.findall(r"ถามช่าง: (.+)", full_text)
+                st.session_state.quick_qs = [q.strip() for q in found_qs[:3]]
+                clean_report = re.sub(r"ถามช่าง: .*", "", full_text).strip()
+                
+                st.session_state.final_report = clean_report
+                st.session_state.chat_history = [{"role": "assistant", "content": clean_report}]
+                st.rerun()
+            except Exception as e: st.error(f"ผิดพลาด: {e}")
+    else: st.warning("กรุณาอัปโหลดรูปภาพก่อนครับ")
+
+# --- 6. ส่วน
