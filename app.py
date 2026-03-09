@@ -7,37 +7,38 @@ import re
 # 1. ตั้งค่าหน้าเว็บ BHOON KHARN Branding
 st.set_page_config(page_title="BHOON KHARN AI", layout="wide")
 
-# CSS: เน้นความสะอาดตา ลดขนาดส่วนปุ่ม และสีแดงเลือดหมูสำหรับหมายเหตุ
+# CSS: เน้นความสะอาดตา ลดขนาดปุ่ม และสีแดงเลือดหมูสำหรับหมายเหตุ
 st.markdown("""
     <style>
     .disclaimer-text {
         color: #8B0000; /* สีแดงเลือดหมู */
-        font-size: 0.85rem;
-        line-height: 1.5;
+        font-size: 0.8rem;
+        line-height: 1.4;
         margin-top: 40px;
         padding-top: 15px;
         border-top: 1px solid #eee;
     }
     .check-box {
         padding: 5px 0 5px 20px;
-        border-left: 4px solid #1E3A8A;
+        border-left: 4px solid #1E3A8A; /* เส้นขอบน้ำเงิน BHOON KHARN */
         margin-bottom: 25px;
         color: #31333F;
         line-height: 1.8;
     }
-    /* ปรับปุ่มคำถามให้เล็กลง */
+    /* ปรับปุ่มคำถามให้เล็กจิ๋วและสะอาดตา */
     .stButton>button {
-        font-size: 0.75rem !important; 
+        font-size: 0.7rem !important; 
         padding: 2px 8px !important;
-        min-height: 26px !important;
-        height: 26px !important;
+        min-height: 24px !important;
+        height: 24px !important;
         border-radius: 4px !important;
+        color: #666 !important;
     }
     .quick-q-label {
         font-size: 0.75rem !important;
         color: #888;
+        margin-top: 15px;
         margin-bottom: 5px;
-        margin-top: 20px;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -87,43 +88,3 @@ if "quick_qs" not in st.session_state: st.session_state.quick_qs = []
 with st.sidebar:
     st.title("⚙️ BHOON KHARN AI")
     if st.session_state.engine: st.success("🟢 ระบบพร้อมใช้งาน")
-    else: st.error(f"🔴 {st.session_state.get('status', 'ขัดข้อง')}")
-    
-    if st.button("🔄 รีเซ็ตระบบ"):
-        st.session_state.engine = None
-        st.rerun()
-    st.divider()
-    mode = st.radio("รูปแบบรายงาน:", ["📊 เทคนิคเชิงลึก", "🏠 สำหรับเจ้าของบ้าน"])
-    if st.button("🗑️ ล้างประวัติทั้งหมด", use_container_width=True):
-        st.session_state.chat_history = []
-        st.session_state.final_report = ""
-        st.session_state.quick_qs = []
-        st.rerun()
-
-# 4. ส่วนอัปโหลดรูปภาพ
-col_l, col_r = st.columns(2)
-with col_l:
-    blueprint = st.file_uploader("📋 แบบแปลน / สเปก", type=['jpg', 'png', 'jpeg'])
-    if blueprint: st.image(blueprint, caption="แบบอ้างอิง", use_container_width=True)
-with col_r:
-    site_photo = st.file_uploader("📸 ภาพหน้างานจริง", type=['jpg', 'png', 'jpeg'])
-    if site_photo: st.image(site_photo, caption="หน้างานจริง", use_container_width=True)
-
-# ฟังก์ชันส่งคำถามต่อเนื่อง
-def run_query(q):
-    if not st.session_state.engine: return
-    st.session_state.chat_history.append({"role": "user", "content": q})
-    res = st.session_state.engine.generate_content(f"วิเคราะห์ในฐานะ BHOON KHARN: {q}")
-    st.session_state.chat_history.append({"role": "assistant", "content": res.text})
-    st.rerun()
-
-# 5. ปุ่มเริ่มการวิเคราะห์
-if st.button("🚀 เริ่มการวิเคราะห์อัจฉริยะ", use_container_width=True):
-    if not st.session_state.engine: st.error("AI ไม่พร้อมใช้งาน")
-    elif site_photo or blueprint:
-        with st.spinner('BHOON KHARN AI กำลังประมวลผล...'):
-            try:
-                # Prompt: บังคับหัวข้อให้ชัดเจน
-                prompt = f"""
-                คุณคือที่ปรึกษา BHOON KHARN วิเคราะห์ภาพก่อสร้างโดยเริ่มทันที:
-                🔍 วิเคราะห์หน้างาน: (ระบุ
