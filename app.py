@@ -7,27 +7,38 @@ import re
 # 1. ตั้งค่าหน้าเว็บ BHOON KHARN Branding
 st.set_page_config(page_title="BHOON KHARN AI", layout="wide")
 
-# ปรับแต่ง CSS: เน้นความสะอาดตา สีตัวอักษรมาตรฐาน และหมายเหตุสีแดงเลือดหมู
+# ปรับแต่ง CSS: เน้นความสะอาดตา และลดขนาดส่วนถามตอบไม่ให้เด่นเกินไป
 st.markdown("""
     <style>
     .disclaimer-text {
         color: #8B0000; /* สีแดงเลือดหมู */
-        font-size: 0.85rem;
-        line-height: 1.5;
+        font-size: 0.8rem;
+        line-height: 1.4;
         margin-top: 40px;
         padding-top: 15px;
         border-top: 1px solid #eee;
     }
     .check-box {
         padding: 5px 0 5px 20px;
-        border-left: 4px solid #1E3A8A; /* เส้นขอบน้ำเงิน BHOON KHARN */
+        border-left: 4px solid #1E3A8A;
         margin-bottom: 25px;
-        color: #31333F; /* สีตัวอักษรมาตรฐานของ Streamlit */
+        color: #31333F;
         line-height: 1.8;
     }
+    /* ปรับขนาดปุ่มคำถามให้เล็กลงและสะอาดตาที่สุด */
     .stButton>button {
-        font-size: 0.85rem !important; /* ปรับขนาดปุ่มคำถามให้กะทัดรัด */
-        padding: 2px 10px !important;
+        font-size: 0.75rem !important; 
+        padding: 1px 10px !important;
+        min-height: 28px !important;
+        height: 28px !important;
+        border-radius: 5px !important;
+    }
+    .quick-q-label {
+        font-size: 0.8rem !important;
+        color: #666;
+        font-weight: bold;
+        margin-bottom: 5px;
+        margin-top: 15px;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -100,102 +111,4 @@ with col_r:
 
 # ฟังก์ชันส่งคำถามต่อเนื่อง
 def run_query(q):
-    if not st.session_state.engine: return
-    st.session_state.chat_history.append({"role": "user", "content": q})
-    res = st.session_state.engine.generate_content(f"วิเคราะห์ในฐานะ BHOON KHARN: {q}")
-    st.session_state.chat_history.append({"role": "assistant", "content": res.text})
-    st.rerun()
-
-# 5. ปุ่มเริ่มการวิเคราะห์
-if st.button("🚀 เริ่มการวิเคราะห์อัจฉริยะ", use_container_width=True):
-    if not st.session_state.engine: st.error("AI ไม่พร้อมใช้งาน")
-    elif site_photo or blueprint:
-        with st.spinner('BHOON KHARN AI กำลังวิเคราะห์ข้อมูล...'):
-            try:
-                # Prompt: บังคับให้ใส่เว้นวรรคและขึ้นบรรทัดใหม่ในส่วนเจ้าของบ้าน
-                prompt = f"""
-                วิเคราะห์ภาพในฐานะที่ปรึกษา BHOON KHARN โดยเริ่มทันที:
-                🔍 [วิเคราะห์หน้างาน]: (ระบุงานและสถานะ)
-                ⏱️ [จุดตายวิกฤต]: (ความเสี่ยงแฝงที่ต้องระวัง)
-                ⚠️ [ผลกระทบต่อเนื่อง]: (Domino Effect และงบซ่อมแซม)
-                🏗️ [มาตรฐานเทคนิค]: (วสท./มยผ./สากล)
-                🏠 [จุดสังเกตสำคัญสำหรับเจ้าของบ้าน]: 
-                (สรุปเป็นข้อๆ โดยใช้ Emoji นำหน้า และต้อง 'ขึ้นบรรทัดใหม่ 2 ครั้ง' ทุกครั้งที่จบแต่ละข้อ เพื่อให้แยกจากกันชัดเจน)
-                
-                แนะนำ 3 คำถามสั้นๆ เริ่มด้วย 'ถามช่าง:' (ห้ามแสดงหัวข้อคำถามในเนื้อหา)
-                โหมด: {mode}
-                """
-                imgs = [Image.open(f) for f in [blueprint, site_photo] if f]
-                resp = st.session_state.engine.generate_content([prompt] + imgs)
-                full_text = resp.text
-                
-                found_qs = re.findall(r"ถามช่าง: (.+)", full_text)
-                st.session_state.quick_qs = [q.strip() for q in found_qs[:3]]
-                clean_report = re.sub(r"ถามช่าง: .*", "", full_text).strip()
-                
-                st.session_state.final_report = clean_report
-                st.session_state.chat_history = [{"role": "assistant", "content": clean_report}]
-                st.rerun()
-            except Exception as e: st.error(f"ผิดพลาด: {e}")
-    else: st.warning("กรุณาอัปโหลดรูปภาพก่อนครับ")
-
-# --- 6. ส่วนการแสดงผล ---
-if st.session_state.final_report:
-    st.divider()
-    st.markdown("### 📋 ผลการตรวจสอบและวิเคราะห์")
-    
-    text = st.session_state.final_report
-    patterns = {
-        "🔍 วิเคราะห์หน้างาน": r"🔍 \[วิเคราะห์หน้างาน\]:(.*?)(?=⏱️|⚠️|🏗️|🏠|$)",
-        "⏱️ จุดตายวิกฤต": r"⏱️ \[จุดตายวิกฤต\]:(.*?)(?=⚠️|🏗️|🏠|$)",
-        "⚠️ ผลกระทบต่อเนื่อง": r"⚠️ \[ผลกระทบต่อเนื่อง\]:(.*?)(?=🏗️|🏠|$)",
-        "🏗️ มาตรฐานเทคนิค": r"🏗️ \[มาตรฐานเทคนิค\]:(.*?)(?=🏠|$)",
-        "🏠 จุดสังเกตสำคัญสำหรับเจ้าของบ้าน": r"🏠 \[จุดสังเกตสำคัญสำหรับเจ้าของบ้าน\]:(.*?)$"
-    }
-    
-    for title, pattern in patterns.items():
-        match = re.search(pattern, text, re.DOTALL)
-        if match:
-            content = match.group(1).strip()
-            if "🔍" in title:
-                st.info(content)
-            elif "🏠" in title:
-                # แสดงค้างไว้ตลอด ปรับสีตัวอักษรให้เหมือนมาตรฐาน และบังคับแยกบรรทัด
-                st.markdown(f"#### {title}")
-                st.markdown(f"<div class='check-box'>", unsafe_allow_html=True)
-                st.markdown(content) # ใช้ Markdown ปกติข้างในเพื่อรักษา List
-                st.markdown(f"</div>", unsafe_allow_html=True)
-            else:
-                with st.expander(f"**{title} (คลิกดูรายละเอียด)**"):
-                    st.markdown(content)
-    
-    st.download_button("📥 บันทึกรายงาน (TXT)", st.session_state.final_report, "BK_Report.txt")
-
-    # ปุ่มคำถามด่วน (Quick Reply)
-    if st.session_state.quick_qs:
-        st.write("")
-        st.markdown("<p style='font-size: 0.9rem; font-weight: bold;'>💡 ถาม BHOON KHARN AI ต่อในประเด็นนี้:</p>", unsafe_allow_html=True)
-        cols = st.columns(len(st.session_state.quick_qs))
-        for idx, q in enumerate(st.session_state.quick_qs):
-            if cols[idx].button(f"🔎 {q}", key=f"q_{idx}", use_container_width=True):
-                run_query(q)
-
-    # แสดงประวัติแชท
-    if len(st.session_state.chat_history) > 1:
-        st.divider()
-        for msg in st.session_state.chat_history[1:]:
-            with st.chat_message(msg["role"]):
-                st.markdown(msg["content"])
-
-    if user_q := st.chat_input("พิมพ์คำถามอื่นๆ..."):
-        run_query(user_q)
-    
-    # 7. ข้อกำหนดการใช้งาน (Disclaimer สีแดงเลือดหมู)
-    st.markdown(f"""
-    <div class="disclaimer-text">
-        <strong>ข้อกำหนดการใช้งาน:</strong><br>
-        • การวิเคราะห์นี้เป็นการประเมินเบื้องต้นจากข้อมูลรูปถ่ายเท่านั้น ข้อมูลที่ได้รับอาจไม่ครบถ้วนสมบูรณ์ตามสภาพหน้างานจริง และไม่สามารถใช้แทนการตรวจสอบโดยวิศวกรวิชาชีพในสถานที่ก่อสร้างได้<br>
-        • ผลลัพธ์ขึ้นอยู่กับคุณภาพ ความคมชัด และมุมมองของรูปภาพที่ท่านอัปโหลด หากระบบไม่สามารถระบุรายละเอียดได้ชัดเจน แนะนำให้ถ่ายภาพใหม่ในมุมที่หลากหลายและมีแสงสว่างเพียงพอ<br>
-        • BHOON KHARN AI ให้ข้อมูลเพื่อเป็นแนวทางประกอบการตัดสินใจเบื้องต้นเท่านั้น โปรดปรึกษาวิศวกรผู้ควบคุมงานของท่านก่อนดำเนินการในขั้นตอนถัดไป
-    </div>
-    """, unsafe_allow_html=True)
+    if
