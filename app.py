@@ -1,9 +1,9 @@
-import streamlit as st
+import streamlit st
 import google.generativeai as genai
 from PIL import Image
 import re
 
-# --- 1. CONFIG & STYLE --- (คงเดิม)
+# --- 1. CONFIG & STYLE ---
 st.set_page_config(page_title="BHOON KHARN AI", layout="wide")
 
 st.markdown("""
@@ -12,13 +12,24 @@ st.markdown("""
     html, body, [class*="st-"] { font-family: 'Sarabun', sans-serif; line-height: 1.8; }
     .main-title { color: #1E3A8A; text-align: center; font-weight: 700; margin-bottom: 30px; }
     .section-header { color: #1E3A8A; font-size: 1.2rem; font-weight: 700; margin-top: 25px; margin-bottom: 10px; border-bottom: 2px solid #eee; padding-bottom: 5px; }
-    .owner-content { border-left: 5px solid #1E3A8A; padding-left: 20px; margin: 20px 0; background: transparent !important; color: inherit !important; font-size: 1rem; }
+    
+    /* แก้ไขส่วนที่ตัวหนังสือติดกัน: เพิ่ม white-space: pre-line */
+    .owner-content { 
+        border-left: 5px solid #1E3A8A; 
+        padding-left: 20px; 
+        margin: 20px 0; 
+        background: transparent !important; 
+        color: inherit !important; 
+        font-size: 1rem;
+        white-space: pre-line; /* ทำให้การเว้นบรรทัดจาก AI แสดงผลจริง */
+    }
+    
     div.stButton > button { font-size: 0.75rem !important; border-radius: 10px !important; color: #555 !important; }
     .maroon-note { color: #8B0000; font-size: 0.85rem; border-top: 1px solid #eee; margin-top: 40px; padding-top: 20px; text-align: center; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. ENGINE --- (คงเดิม)
+# --- 2. ENGINE ---
 def init_ai_engine():
     api_key = st.secrets.get("GOOGLE_API_KEY") or next((st.secrets[k] for k in st.secrets if "API_KEY" in k.upper()), None)
     if not api_key: return None, "กรุณาตั้งค่า API Key"
@@ -42,7 +53,7 @@ if "chat" not in st.session_state: st.session_state.chat = []
 if "rep" not in st.session_state: st.session_state.rep = ""
 if "qs" not in st.session_state: st.session_state.qs = []
 
-# --- 3. SIDEBAR --- (คงเดิม)
+# --- 3. SIDEBAR ---
 with st.sidebar:
     st.markdown("### 🏗️ BHOON KHARN AI")
     if "สำเร็จ" in st.session_state.status: st.success(st.session_state.status)
@@ -55,7 +66,7 @@ with st.sidebar:
         st.session_state.chat, st.session_state.rep, st.session_state.qs = [], "", []
         st.rerun()
 
-# --- 4. MAIN UI --- (คงเดิม รองรับ PDF)
+# --- 4. MAIN UI ---
 st.markdown("<h1 class='main-title'>🏗️ BHOON KHARN AI</h1>", unsafe_allow_html=True)
 
 c1, c2 = st.columns(2)
@@ -68,19 +79,20 @@ with c2:
     site = st.file_uploader("📸 สภาพหน้างาน", type=['jpg','jpeg','png'])
     if site: st.image(site)
 
-# --- 5. LOGIC --- (เพิ่มหัวข้อ [CHECKLIST] ใน Prompt)
+# --- 5. LOGIC ---
 def run_analysis():
     if not st.session_state.engine: return
-    with st.spinner("BHOON KHARN AI กำลังวิเคราะห์และจัดทำคู่มือตรวจงาน..."):
+    with st.spinner("BHOON KHARN AI กำลังวิเคราะห์และจัดระเบียบข้อมูล..."):
         try:
+            # สั่ง AI ให้เว้นบรรทัดและใช้ Bullet Points ในส่วน OWNER_NOTE
             prompt = f"""วิเคราะห์ข้อมูลในฐานะ BHOON KHARN AI โหมด: {mode} 
             หัวข้อ: 
             [ANALYSIS] สรุปการวิเคราะห์หน้างานปัจจุบัน
             [RISK] จุดวิกฤตหรือสิ่งที่ต้องระวังเป็นพิเศษ
-            [CHECKLIST] เทคนิคการตรวจและจุดที่ต้องตรวจสอบอย่างยิ่ง (ระบุข้อควรรู้และเกณฑ์มาตรฐานของหมวดงานนี้)
+            [CHECKLIST] เทคนิคการตรวจและจุดที่ต้องตรวจสอบอย่างยิ่ง (ระบุข้อควรรู้และเกณฑ์มาตรฐาน)
             [STANDARD] มาตรฐานงานช่างและวิศวกรรม
-            [OWNER_NOTE] คำแนะนำสำคัญถึงเจ้าของบ้านและสิ่งที่ควรรู้เกี่ยวกับงานขั้นตอนถัดไป
-            และถามช่าง: 3 ข้อคำถามแนะนำ"""
+            [OWNER_NOTE] คำแนะนำสำหรับเจ้าของบ้านและงานในอนาคต (กรุณาเขียนแยกเป็นข้อๆ โดยใช้เครื่องหมาย * และเว้นบรรทัดระหว่างข้อให้ชัดเจน)
+            ถามช่าง: 3 ข้อคำถามแนะนำ"""
             
             inps = [prompt]
             if bp:
@@ -102,7 +114,7 @@ def ask_more(query):
         st.session_state.chat.append({"role": "user", "content": query})
         st.session_state.chat.append({"role": "assistant", "content": res.text})
 
-# --- 6. DISPLAY --- (เพิ่มหัวข้อแสดงผล CHECKLIST)
+# --- 6. DISPLAY ---
 if st.button("🚀 เริ่มการวิเคราะห์อัจฉริยะ", use_container_width=True, type="primary"):
     if bp or site: run_analysis()
     else: st.warning("กรุณาอัปโหลดรูปภาพหรือไฟล์แปลน")
@@ -113,7 +125,7 @@ if st.session_state.rep:
     sections = [
         ("🔍 สรุปการวิเคราะห์หน้างาน", "[ANALYSIS]"), 
         ("⏱️ จุดวิกฤตที่ต้องตรวจสอบ", "[RISK]"), 
-        ("📝 เทคนิคการตรวจและจุดที่ต้องระบุพิเศษ", "[CHECKLIST]"), # ส่วนที่เพิ่มใหม่
+        ("📝 เทคนิคการตรวจและจุดที่ต้องระบุพิเศษ", "[CHECKLIST]"),
         ("🏗️ มาตรฐานงานช่างและวิศวกรรม", "[STANDARD]"), 
         ("🏠 สิ่งที่เจ้าของบ้านต้องทราบและงานอนาคต", "[OWNER_NOTE]")
     ]
@@ -122,8 +134,11 @@ if st.session_state.rep:
         if tag in res:
             content = res.split(tag)[1].split("[")[0].strip()
             st.markdown(f"<div class='section-header'>{title}</div>", unsafe_allow_html=True)
-            if tag == "[OWNER_NOTE]": st.markdown(f"<div class='owner-content'>{content}</div>", unsafe_allow_html=True)
-            else: st.write(content)
+            if tag == "[OWNER_NOTE]":
+                # แสดงผลเนื้อหาที่ AI แยกข้อมาให้แล้ว
+                st.markdown(f"<div class='owner-content'>{content}</div>", unsafe_allow_html=True)
+            else:
+                st.write(content)
 
     if st.session_state.qs:
         st.write("")
