@@ -1,125 +1,204 @@
 import streamlit as st
 import google.generativeai as genai
 from PIL import Image
-import random, re
+import random
+import re
 
-# 1. CSS & Style
-st.set_page_config(page_title="BHOON KHARN AI", layout="wide")
-st.markdown("""<style>
-    .owner { border-left: 5px solid #1E3A8A; padding: 15px; background: #f8f9fa; border-radius: 0 5px 5px 0; margin-bottom: 20px; }
-    .q-lbl { font-size: 0.8rem; font-weight: bold; color: #1E3A8A; margin-top: 15px; }
-    div.stButton > button { font-size: 0.75rem !important; border-radius: 20px !important; }
-    .maroon { color: #8B0000; font-size: 0.8rem; border-top: 1px solid #eee; margin-top: 30px; padding-top: 10px; text-align: center; }
-</style>""", unsafe_allow_html=True)
+# --- 1. CONFIG & STYLE ---
+st.set_page_config(page_title="BHOON KHARN AI", layout="wide", initial_sidebar_state="expanded")
 
-st.markdown("<h2 style='text-align: center; color: #1E3A8A;'>🏗️ BHOON KHARN AI</h2>", unsafe_allow_html=True)
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;700&display=swap');
+    html, body, [class*="st-"] { font-family: 'Sarabun', sans-serif; }
+    .main-title { color: #1E3A8A; text-align: center; font-weight: 700; margin-bottom: 20px; }
+    .stAlert { border-radius: 10px; border: none; }
+    .owner-box { 
+        background-color: #f0f4f8; 
+        border-left: 5px solid #1E3A8A; 
+        padding: 20px; 
+        border-radius: 5px; 
+        margin: 10px 0;
+    }
+    .q-suggest { font-size: 0.85rem; color: #1E3A8A; font-weight: bold; margin-bottom: 10px; }
+    div.stButton > button { 
+        border-radius: 20px; 
+        font-size: 0.8rem !important; 
+        transition: all 0.3s;
+    }
+    .footer-note { color: #8B0000; font-size: 0.75rem; text-align: center; margin-top: 50px; opacity: 0.8; }
+</style>
+""", unsafe_allow_html=True)
 
-# 2. Engine Logic
-def get_ks():
-    k = [st.secrets["GOOGLE_API_KEY"]] if "GOOGLE_API_KEY" in st.secrets else []
-    for s in st.secrets.keys():
-        if "API_KEY" in s.upper() and st.secrets[s] not in k: k.append(st.secrets[s])
-    return k
+# --- 2. ENGINE (API MANAGEMENT) ---
+def get_all_keys():
+    """ดึง API Keys ทั้งหมดจาก Secrets"""
+    keys = []
+    if "GOOGLE_API_KEY" in st.secrets:
+        keys.append(st.secrets["GOOGLE_API_KEY"])
+    # ดึงคีย์สำรองอื่นๆ ที่อาจตั้งชื่อต่างกัน
+    for k in st.secrets.keys():
+        if "API_KEY" in k.upper() and st.secrets[k] not in keys:
+            keys.append(st.secrets[k])
+    return keys
+
+def try_init_model(api_key):
+    """พยายามเชื่อมต่อ Model ตามลำดับความเสถียร"""
+    genai.configure(api_key=api_key)
+    # ลำดับรุ่นที่ต้องการใช้ (Flash-8b มี Quota สูงสุด)
+    models_to_try = ["gemini-1.5-flash", "gemini-1.5-flash-8b", "gemini-2.0-flash-exp"]
+    for m_name in models_to_try:
+        try:
+            model = genai.GenerativeModel(m_name)
+            model.generate_content("test", generation_config={"max_output_tokens": 5})
+            return model, m_name
+        except Exception:
+            continue
+    return None, None
 
 @st.cache_resource
-def init_ai(ks):
-    if not ks: return None, "No API Key"
-    random.shuffle(ks)
-    for pk in ks:
-        try:
-            genai.configure(api_key=pk)
-            # ใช้รุ่นที่เสถียรที่สุดก่อน
-            m = genai.GenerativeModel("gemini-1.5-flash")
-            m.generate_content("ping")
-            return m, "System Ready"
-        except: continue
-    return None, "Quota Full or Connection Error"
-
-if "chat" not in st.session_state: st.session_state.chat = []
-if "rep" not in st.session_state: st.session_state.rep = ""
-if "qs" not in st.session_state: st.session_state.qs = []
-
-# 3. Sidebar
-with st.sidebar:
-    st.header("⚙️ Control Panel")
-    m_obj, status = init_ai(get_ks())
-    if m_obj: st.success(status)
-    else: st.error(status)
+def load_engine():
+    keys = get_all_keys()
+    if not keys:
+        return None, "❌ ไม่พบ API Key ใน System Secrets"
     
-    mode = st.radio("โหมดการวิเคราะห์:", ["📊 ช่างเทคนิค/วิศวกร", "🏠 เจ้าของบ้าน"])
-    if st.button("🗑️ ล้างข้อมูลทั้งหมด", use_container_width=True):
-        st.session_state.chat, st.session_state.rep, st.session_state.qs = [], "", []
+    random.shuffle(keys) # กระจายโหลด
+    for key in keys:
+        model, model_name = try_init_model(key)
+        if model:
+            return model, f"✅ เชื่อมต่อสำเร็จ ({model_name})"
+    
+    return None, "❌ Quota เต็มทุก Key หรือการเชื่อมต่อมีปัญหา"
+
+# Initialize Session States
+for key in ["chat_history", "analysis_result", "suggested_qs"]:
+    if key not in st.session_state:
+        st.session_state[key] = [] if key != "analysis_result" else ""
+
+# --- 3. SIDEBAR & TOOLS ---
+with st.sidebar:
+    st.markdown("### ⚙️ แผงควบคุม")
+    engine, status_msg = load_engine()
+    
+    if "✅" in status_msg: st.success(status_msg)
+    else: st.error(status_msg)
+    
+    if st.button("🔄 รีเฟรชการเชื่อมต่อ"):
+        st.cache_resource.clear()
+        st.rerun()
+        
+    st.divider()
+    mode = st.radio("มุมมองการวิเคราะห์:", ["📊 เชิงวิศวกรรม/เทคนิค", "🏠 สำหรับเจ้าของบ้าน"])
+    
+    if st.button("🗑️ ล้างประวัติทั้งหมด"):
+        st.session_state.chat_history = []
+        st.session_state.analysis_result = ""
+        st.session_state.suggested_qs = []
         st.rerun()
 
-# 4. Uploaders
-c1, c2 = st.columns(2)
-with c1:
-    bp = st.file_uploader("📋 แนบแปลน (Blueprint)", type=['jpg','png','jpeg'])
-    if bp: st.image(bp, caption="แปลนก่อสร้าง")
-with c2:
-    site = st.file_uploader("📸 รูปหน้างานจริง", type=['jpg','png','jpeg'])
-    if site: st.image(site, caption="สภาพหน้างาน")
+# --- 4. MAIN UI ---
+st.markdown("<h1 class='main-title'>🏗️ BHOON KHARN AI</h1>", unsafe_allow_html=True)
+st.caption("<center>ระบบตรวจงานก่อสร้างอัจฉริยะ วิเคราะห์แปลนและหน้างานด้วยวิศวกรรม AI</center>", unsafe_allow_html=True)
 
-# 5. Functions
-def run_q(q):
-    if not m_obj: return
-    with st.spinner('AI กำลังตอบ...'):
-        res = m_obj.generate_content(f"ในฐานะ BHOON KHARN AI ตอบคำถามนี้: {q}")
-        st.session_state.chat.append({"role": "user", "content": q})
-        st.session_state.chat.append({"role": "assistant", "content": res.text})
+col_up1, col_up2 = st.columns(2)
+with col_up1:
+    bp_file = st.file_uploader("📋 อัปโหลดแบบแปลน (Blueprint)", type=['jpg','jpeg','png'])
+with col_up2:
+    site_file = st.file_uploader("📸 อัปโหลดรูปหน้างานจริง", type=['jpg','jpeg','png'])
 
-# 6. Analysis Execution
+# --- 5. LOGIC FUNCTIONS ---
+def analyze_images():
+    if not engine:
+        st.error("AI Engine ไม่พร้อมทำงาน กรุณาเช็ค API Key")
+        return
+
+    with st.spinner("BHOON KHARN AI กำลังวิเคราะห์ข้อมูล..."):
+        try:
+            prompt = f"""คุณคือ BHOON KHARN AI วิศวกรผู้เชี่ยวชาญ 
+            วิเคราะห์ภาพที่แนบมาในโหมด: {mode}
+            สรุปหัวข้อดังนี้:
+            1. [ANALYSIS] วิเคราะห์สิ่งที่เห็น
+            2. [RISK] จุดที่อันตรายหรือต้องแก้ไขด่วน
+            3. [STANDARD] มาตรฐานวิศวกรรมที่เกี่ยวข้อง
+            4. [OWNER_NOTE] คำแนะนำสำคัญสำหรับเจ้าของบ้าน
+            5. [QUESTIONS] คำแนะนำ 3 คำถามที่ควรใช้ถามช่าง (ขึ้นต้นด้วย 'ถามช่าง: ')"""
+            
+            inputs = [prompt]
+            if bp_file: inputs.append(Image.open(bp_file))
+            if site_file: inputs.append(Image.open(site_file))
+            
+            response = engine.generate_content(inputs).text
+            
+            # Extract Questions
+            questions = re.findall(r"ถามช่าง:\s*(.*)", response)
+            st.session_state.suggested_qs = [q.strip() for q in questions[:3]]
+            
+            # Clean Report
+            report = re.sub(r"ถามช่าง:.*", "", response, flags=re.DOTALL).strip()
+            st.session_state.analysis_result = report
+            st.session_state.chat_history = [{"role": "assistant", "content": "วิเคราะห์ภาพเสร็จสิ้น คุณสามารถสอบถามข้อมูลเพิ่มเติมได้จากช่องแชทด้านล่างครับ"}]
+            
+        except Exception as e:
+            st.error(f"เกิดข้อผิดพลาดในการวิเคราะห์: {str(e)}")
+
+def ask_ai(query):
+    if engine:
+        st.session_state.chat_history.append({"role": "user", "content": query})
+        with st.spinner("AI กำลังพิมพ์..."):
+            res = engine.generate_content(f"Context: BHOON KHARN AI. Question: {query}")
+            st.session_state.chat_history.append({"role": "assistant", "content": res.text})
+
+# --- 6. DISPLAY RESULTS ---
 if st.button("🚀 เริ่มการวิเคราะห์อัจฉริยะ", use_container_width=True, type="primary"):
-    if not m_obj: 
-        st.error("AI ไม่พร้อมใช้งาน")
-    elif not (site or bp):
-        st.warning("กรุณาอัปโหลดรูปแปลนหรือรูปหน้างานอย่างน้อย 1 รูป")
+    if bp_file or site_file:
+        analyze_images()
     else:
-        with st.spinner('กำลังประมวลผลภาพและข้อมูลวิศวกรรม...'):
-            try:
-                prompt = f"""วิเคราะห์ในฐานะ BHOON KHARN AI (เชี่ยวชาญการตรวจงานก่อสร้าง) 
-                โหมดผู้ใช้งาน: {mode}
-                กรุณาตอบตามโครงสร้างนี้เท่านั้น:
-                🔍 วิเคราะห์หน้างาน: (สรุปสิ่งที่เห็นจากภาพ)
-                ⏱️ จุดตายวิกฤต: (จุดที่ต้องแก้ไขทันทีหรือห้ามพลาด)
-                🏗️ มาตรฐาน: (อ้างอิงมาตรฐานวิศวกรรมที่เกี่ยวข้อง)
-                🏠 จุดสังเกตสำหรับเจ้าของบ้าน: (สิ่งที่เจ้าของบ้านต้องคุยกับผู้รับเหมา)
-                คำถามแนะนำ (เริ่มด้วย 'ถามช่าง: ' เสมอ 3 ข้อ)"""
-                
-                content_payload = [prompt]
-                if bp: content_payload.append(Image.open(bp))
-                if site: content_payload.append(Image.open(site))
-                
-                response = m_obj.generate_content(content_payload).text
-                
-                # Parsing Results
-                st.session_state.qs = [q.replace("ถามช่าง:", "").strip() for q in re.findall(r"ถามช่าง:.*", response)]
-                st.session_state.rep = re.sub(r"ถามช่าง:.*", "", response, flags=re.DOTALL).strip()
-                st.session_state.chat = [{"role": "assistant", "content": "วิเคราะห์เสร็จสิ้น เรียบร้อยครับ"}]
-            except Exception as e:
-                st.error(f"เกิดข้อผิดพลาด: {e}")
+        st.warning("⚠️ กรุณาอัปโหลดรูปภาพอย่างน้อย 1 รูปก่อนเริ่มวิเคราะห์")
 
-# 7. UI Display
-if st.session_state.rep:
+if st.session_state.analysis_result:
     st.divider()
-    # แสดงผลแยกส่วนโดยใช้ Expander หรือ Container
-    st.markdown(st.session_state.rep)
+    res_text = st.session_state.analysis_result
     
-    if st.session_state.qs:
-        st.markdown("<p class='q-lbl'>💡 คำถามที่แนะนำให้ถามช่าง:</p>", unsafe_allow_html=True)
-        q_cols = st.columns(len(st.session_state.qs))
-        for idx, q_text in enumerate(st.session_state.qs):
-            if q_cols[idx].button(f"💬 {q_text}", key=f"btn_{idx}"):
-                run_q(q_text)
+    # แสดงผลแยกตาม Section ที่ตรวจพบ
+    sections = {
+        "🔍 วิเคราะห์": "[ANALYSIS]",
+        "⏱️ จุดวิกฤต/ความเสี่ยง": "[RISK]",
+        "🏗️ มาตรฐานวิศวกรรม": "[STANDARD]",
+        "🏠 ข้อควรระวังสำหรับเจ้าของบ้าน": "[OWNER_NOTE]"
+    }
+    
+    for label, tag in sections.items():
+        if tag in res_text or tag.lower() in res_text.lower():
+            content = res_text.split(tag)[-1].split("[")[0].strip().strip(":")
+            if tag == "[OWNER_NOTE]":
+                st.markdown(f"### {label}")
+                st.markdown(f"<div class='owner-box'>{content}</div>", unsafe_allow_html=True)
+            else:
+                with st.expander(f"**{label}**", expanded=True if tag=="[ANALYSIS]" else False):
+                    st.write(content)
+
+    # Suggested Questions Buttons
+    if st.session_state.suggested_qs:
+        st.markdown("<p class='q-suggest'>💡 คำถามที่แนะนำให้ถามทีมช่าง:</p>", unsafe_allow_html=True)
+        cols = st.columns(len(st.session_state.suggested_qs))
+        for i, q in enumerate(st.session_state.suggested_qs):
+            if cols[i].button(f"🔎 {q}", key=f"sq_{i}", use_container_width=True):
+                ask_ai(q)
                 st.rerun()
 
-    # Chat History
-    for msg in st.session_state.chat:
+    # Chat UI
+    st.divider()
+    for msg in st.session_state.chat_history:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-    if u_input := st.chat_input("สอบถามรายละเอียดเพิ่มเติม..."):
-        run_q(u_input)
+    if prompt := st.chat_input("พิมพ์คำถามเพิ่มเติมที่นี่..."):
+        ask_ai(prompt)
         st.rerun()
 
-st.markdown("<div class='maroon'><strong>หมายเหตุ:</strong> ระบบนี้เป็นการวิเคราะห์เบื้องต้นทางวิศวกรรมด้วย AI เท่านั้น ไม่สามารถนำไปใช้อ้างอิงทางกฎหมาย หรือทดแทนการตรวจสอบโดยวิศวกรวิชาชีพ ณ หน้างานจริงได้</div>", unsafe_allow_html=True)
+st.markdown("""
+<div class='footer-note'>
+    <strong>คำเตือน:</strong> การวิเคราะห์นี้เป็นเพียงการประมวลผลเบื้องต้นจากรูปภาพ <br> 
+    ไม่สามารถทดแทนการตรวจสอบหน้างานโดยวิศวกรวิชาชีพ (PE/SE) ได้
+</div>
+""", unsafe_allow_html=True)
