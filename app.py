@@ -3,7 +3,7 @@ import google.generativeai as genai
 from PIL import Image
 import re
 
-# --- 1. CONFIG & STYLE --- (คงเดิมตามที่พี่ส่งมา)
+# --- 1. CONFIG & STYLE --- (คงเดิม)
 st.set_page_config(page_title="BHOON KHARN AI", layout="wide")
 
 st.markdown("""
@@ -18,7 +18,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. ENGINE --- (คงเดิมตามชุดที่เสถียรที่สุดของพี่)
+# --- 2. ENGINE --- (คงเดิม)
 def init_ai_engine():
     api_key = st.secrets.get("GOOGLE_API_KEY") or next((st.secrets[k] for k in st.secrets if "API_KEY" in k.upper()), None)
     if not api_key: return None, "กรุณาตั้งค่า API Key"
@@ -55,42 +55,44 @@ with st.sidebar:
         st.session_state.chat, st.session_state.rep, st.session_state.qs = [], "", []
         st.rerun()
 
-# --- 4. MAIN UI --- (แก้ไขจุดเดียว: เพิ่มการรองรับ PDF ในช่องแปลน)
+# --- 4. MAIN UI --- (คงเดิม รองรับ PDF)
 st.markdown("<h1 class='main-title'>🏗️ BHOON KHARN AI</h1>", unsafe_allow_html=True)
 
 c1, c2 = st.columns(2)
 with c1:
-    # เพิ่ม 'pdf' เข้าไปใน type
     bp = st.file_uploader("📋 แปลนก่อสร้าง", type=['jpg','jpeg','png','pdf'])
     if bp:
-        if bp.type == "application/pdf":
-            st.info("📂 รับไฟล์แปลน PDF เรียบร้อย")
-        else:
-            st.image(bp)
+        if bp.type == "application/pdf": st.info("📂 รับไฟล์แปลน PDF เรียบร้อย")
+        else: st.image(bp)
 with c2:
     site = st.file_uploader("📸 สภาพหน้างาน", type=['jpg','jpeg','png'])
     if site: st.image(site)
 
-# --- 5. LOGIC --- (คงเดิม)
+# --- 5. LOGIC --- (เพิ่มหัวข้อ [CHECKLIST] ใน Prompt)
 def run_analysis():
     if not st.session_state.engine: return
-    with st.spinner("BHOON KHARN AI กำลังวิเคราะห์..."):
+    with st.spinner("BHOON KHARN AI กำลังวิเคราะห์และจัดทำคู่มือตรวจงาน..."):
         try:
-            prompt = f"วิเคราะห์ข้อมูลในฐานะ BHOON KHARN AI โหมด: {mode} หัวข้อ: [ANALYSIS], [RISK], [STANDARD], [OWNER_NOTE] และสิ่งที่ต้องเตรียมตัวในอนาคต สุดท้ายแนะนำ 3 คำถามที่ควรใช้ถามต่อ โดยขึ้นต้นว่า 'ถามช่าง: ' ทุกข้อ"
+            prompt = f"""วิเคราะห์ข้อมูลในฐานะ BHOON KHARN AI โหมด: {mode} 
+            หัวข้อ: 
+            [ANALYSIS] สรุปการวิเคราะห์หน้างานปัจจุบัน
+            [RISK] จุดวิกฤตหรือสิ่งที่ต้องระวังเป็นพิเศษ
+            [CHECKLIST] เทคนิคการตรวจและจุดที่ต้องตรวจสอบอย่างยิ่ง (ระบุข้อควรรู้และเกณฑ์มาตรฐานของหมวดงานนี้)
+            [STANDARD] มาตรฐานงานช่างและวิศวกรรม
+            [OWNER_NOTE] คำแนะนำสำคัญถึงเจ้าของบ้านและสิ่งที่ควรรู้เกี่ยวกับงานขั้นตอนถัดไป
+            และถามช่าง: 3 ข้อคำถามแนะนำ"""
+            
             inps = [prompt]
             if bp:
-                # ถ้าเป็น PDF ส่งไฟล์ดิบไปเลย ถ้าเป็นรูปให้เปิดด้วย Image.open
-                if bp.type == "application/pdf":
-                    inps.append({"mime_type": "application/pdf", "data": bp.getvalue()})
-                else:
-                    inps.append(Image.open(bp))
+                if bp.type == "application/pdf": inps.append({"mime_type": "application/pdf", "data": bp.getvalue()})
+                else: inps.append(Image.open(bp))
             if site: inps.append(Image.open(site))
             
             res = st.session_state.engine.generate_content(inps)
             txt = res.text
             
-            st.session_state.qs = [q.strip() for q in re.findall(r"ถามช่าง:\s*(.*)", txt)[:3]]
-            st.session_state.rep = re.sub(r"ถามช่าง:.*", "", txt, flags=re.DOTALL).strip()
+            st.session_state.qs = [q.strip() for q in re.findall(r"(?:ถามช่าง|คำถามแนะนำ):\s*(.*)", txt)[:3]]
+            st.session_state.rep = re.sub(r"(?:ถามช่าง|คำถามแนะนำ):.*", "", txt, flags=re.DOTALL).strip()
             st.session_state.chat = []
         except Exception as e: st.error(f"เกิดข้อผิดพลาด: {str(e)}")
 
@@ -100,10 +102,9 @@ def ask_more(query):
         st.session_state.chat.append({"role": "user", "content": query})
         st.session_state.chat.append({"role": "assistant", "content": res.text})
 
-# --- 6. DISPLAY --- (คงเดิม)
+# --- 6. DISPLAY --- (เพิ่มหัวข้อแสดงผล CHECKLIST)
 if st.button("🚀 เริ่มการวิเคราะห์อัจฉริยะ", use_container_width=True, type="primary"):
-    if bp or site:
-        run_analysis()
+    if bp or site: run_analysis()
     else: st.warning("กรุณาอัปโหลดรูปภาพหรือไฟล์แปลน")
 
 if st.session_state.rep:
@@ -112,6 +113,7 @@ if st.session_state.rep:
     sections = [
         ("🔍 สรุปการวิเคราะห์หน้างาน", "[ANALYSIS]"), 
         ("⏱️ จุดวิกฤตที่ต้องตรวจสอบ", "[RISK]"), 
+        ("📝 เทคนิคการตรวจและจุดที่ต้องระบุพิเศษ", "[CHECKLIST]"), # ส่วนที่เพิ่มใหม่
         ("🏗️ มาตรฐานงานช่างและวิศวกรรม", "[STANDARD]"), 
         ("🏠 สิ่งที่เจ้าของบ้านต้องทราบและงานอนาคต", "[OWNER_NOTE]")
     ]
@@ -134,8 +136,8 @@ if st.session_state.rep:
     for m in st.session_state.chat:
         with st.chat_message(m["role"]): st.markdown(m["content"])
 
-    st.markdown("<div class='maroon-note'><strong>หมายเหตุ:</strong> ข้อมูลนี้ไม่สามารถนำไปใช้างอิงทางกฎหมายได้</div>", unsafe_allow_html=True)
-
     if ui := st.chat_input("สอบถามเพิ่มเติม..."):
         ask_more(ui)
         st.rerun()
+
+    st.markdown("<div class='maroon-note'><strong>หมายเหตุ:</strong> ข้อมูลนี้ไม่สามารถนำไปใช้างอิงทางกฎหมายได้</div>", unsafe_allow_html=True)
