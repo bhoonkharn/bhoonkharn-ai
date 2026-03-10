@@ -3,7 +3,7 @@ import google.generativeai as genai
 from PIL import Image
 import re
 
-# --- 1. CONFIG & STYLE (ปรับสีตัวอักษรโหมดเจ้าของบ้านให้เป็นสีมาตรฐาน) ---
+# --- 1. CONFIG & STYLE (ล้างฉากหลังและปรับสีตัวอักษรให้มาตรฐาน 100%) ---
 st.set_page_config(page_title="BHOON KHARN AI", layout="wide")
 
 st.markdown("""
@@ -28,13 +28,14 @@ st.markdown("""
         padding-bottom: 5px;
     }
 
-    /* โหมดเจ้าของบ้าน - สีเดียวกับอันอื่น แต่เน้นขอบซ้าย */
+    /* โหมดเจ้าของบ้าน - ล้างฉากหลัง ใช้สีและฟอนต์มาตรฐานเดียวกับระบบ */
     .owner-content { 
         border-left: 5px solid #1E3A8A; 
         padding-left: 20px; 
         margin: 20px 0;
-        color: #31333F; /* สีมาตรฐานของ Streamlit */
-        font-size: 1.1rem;
+        background: transparent !important; /* บังคับไม่มีฉากหลัง */
+        color: inherit !important; /* ใช้สีเดียวกับข้อความปกติของแอป */
+        font-size: 1rem; /* ขนาดเท่ากับข้อความปกติ */
     }
     
     /* ปุ่มคำถามชวนคุย (จิ๋ว 0.7rem) */
@@ -168,6 +169,7 @@ if st.session_state.rep:
             st.markdown(f"<div class='section-header'>{title}</div>", unsafe_allow_html=True)
             
             if tag == "[OWNER_NOTE]":
+                # ใช้คลาสใหม่ที่บังคับโปร่งใสและสีมาตรฐาน
                 st.markdown(f"<div class='owner-content'>{content}</div>", unsafe_allow_html=True)
             else:
                 st.write(content)
