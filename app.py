@@ -3,7 +3,7 @@ import google.generativeai as genai
 from PIL import Image
 import re
 
-# --- 1. CONFIG & STYLE ---
+# --- 1. CONFIG & STYLE --- (คงเดิมตามพี่ส่งมา)
 st.set_page_config(page_title="BHOON KHARN AI", layout="wide")
 
 st.markdown("""
@@ -18,21 +18,21 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. ENGINE ---
+# --- 2. ENGINE --- (ปรับให้หา Model อัตโนมัติเพื่อเลี่ยง 404)
 def init_ai_engine():
     api_key = st.secrets.get("GOOGLE_API_KEY") or next((st.secrets[k] for k in st.secrets if "API_KEY" in k.upper()), None)
     if not api_key: return None, "กรุณาตั้งค่า API Key"
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("models/gemini-1.5-flash")
-        model.generate_content("test", generation_config={"max_output_tokens": 1})
+        # ลองดึงรุ่นที่มีอยู่จริงในระบบเพื่อแก้ปัญหา 404 ถาวร
+        valid_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+        target = "models/gemini-1.5-flash"
+        if target not in valid_models and valid_models:
+            target = valid_models[0]
+        
+        model = genai.GenerativeModel(target)
         return model, "เชื่อมต่อสำเร็จ"
     except Exception:
-        try:
-            for m in genai.list_models():
-                if 'generateContent' in m.supported_generation_methods:
-                    return genai.GenerativeModel(m.name), "เชื่อมต่อสำเร็จ"
-        except: pass
         return None, "การเชื่อมต่อขัดข้อง"
 
 if "engine" not in st.session_state:
@@ -42,7 +42,7 @@ if "chat" not in st.session_state: st.session_state.chat = []
 if "rep" not in st.session_state: st.session_state.rep = ""
 if "qs" not in st.session_state: st.session_state.qs = []
 
-# --- 3. SIDEBAR ---
+# --- 3. SIDEBAR --- (คงเดิม)
 with st.sidebar:
     st.markdown("### 🏗️ BHOON KHARN AI")
     if "สำเร็จ" in st.session_state.status: st.success(st.session_state.status)
@@ -55,7 +55,7 @@ with st.sidebar:
         st.session_state.chat, st.session_state.rep, st.session_state.qs = [], "", []
         st.rerun()
 
-# --- 4. MAIN UI ---
+# --- 4. MAIN UI --- (คงเดิม)
 st.markdown("<h1 class='main-title'>🏗️ BHOON KHARN AI</h1>", unsafe_allow_html=True)
 
 c1, c2 = st.columns(2)
@@ -66,12 +66,19 @@ with c2:
     site = st.file_uploader("📸 สภาพหน้างาน", type=['jpg','jpeg','png'])
     if site: st.image(site)
 
-# --- 5. LOGIC ---
+# --- 5. LOGIC --- (ปรับ Prompt ให้มองเห็นงานอนาคต)
 def run_analysis():
     if not st.session_state.engine: return
-    with st.spinner("BHOON KHARN AI กำลังวิเคราะห์..."):
+    with st.spinner("BHOON KHARN AI กำลังวิเคราะห์งานปัจจุบันและอนาคต..."):
         try:
-            prompt = f"วิเคราะห์ภาพในฐานะ BHOON KHARN AI โหมด: {mode} หัวข้อ: [ANALYSIS], [RISK], [STANDARD], [OWNER_NOTE] และถามช่าง: 3 ข้อ"
+            # เพิ่มเนื้อหาเรื่องงานในอนาคตลงใน Prompt
+            prompt = f"""วิเคราะห์ภาพในฐานะ BHOON KHARN AI โหมด: {mode} 
+            หัวข้อ: 
+            [ANALYSIS] วิเคราะห์หน้างานปัจจุบัน
+            [RISK] จุดวิกฤตที่ต้องระวังตอนนี้
+            [FUTURE] วิเคราะห์งานขั้นตอนถัดไปที่ต้องทำต่อและสิ่งที่ต้องเตรียมตัว
+            [OWNER_NOTE] สิ่งที่เจ้าของบ้านต้องทราบทั้งงานปัจจุบันและงานอนาคต
+            และถามช่าง: 3 ข้อ"""
             inps = [prompt]
             if bp: inps.append(Image.open(bp))
             if site: inps.append(Image.open(site))
@@ -79,7 +86,7 @@ def run_analysis():
             txt = res.text
             st.session_state.qs = [q.strip() for q in re.findall(r"ถามช่าง:\s*(.*)", txt)[:3]]
             st.session_state.rep = re.sub(r"ถามช่าง:.*", "", txt, flags=re.DOTALL).strip()
-            st.session_state.chat = [] # Clear chat old sessions when new analysis starts
+            st.session_state.chat = [] 
         except Exception as e: st.error(str(e))
 
 def ask_more(query):
@@ -88,41 +95,49 @@ def ask_more(query):
         st.session_state.chat.append({"role": "user", "content": query})
         st.session_state.chat.append({"role": "assistant", "content": res.text})
 
-# --- 6. DISPLAY ---
+# --- 6. DISPLAY --- (ใช้ Container เพื่อล็อกจอไม่ให้เด้ง)
 if st.button("🚀 เริ่มการวิเคราะห์อัจฉริยะ", use_container_width=True, type="primary"):
     if bp or site:
         run_analysis()
-        # ไม่ใส่ st.rerun() ตรงนี้เพื่อให้หน้าจอนิ่ง
     else: st.warning("กรุณาอัปโหลดรูปภาพ")
 
+# ล็อกพื้นที่แสดงรายงานไว้ด้วย Container
+report_placeholder = st.container()
+
 if st.session_state.rep:
-    st.divider()
-    res = st.session_state.rep
-    sections = [("🔍 สรุปการวิเคราะห์หน้างาน", "[ANALYSIS]"), ("⏱️ จุดวิกฤตที่ต้องตรวจสอบ", "[RISK]"), ("🏗️ มาตรฐานงานช่างและวิศวกรรม", "[STANDARD]"), ("🏠 สิ่งที่เจ้าของบ้านต้องทราบ", "[OWNER_NOTE]")]
-    
-    for title, tag in sections:
-        if tag in res:
-            content = res.split(tag)[1].split("[")[0].strip()
-            st.markdown(f"<div class='section-header'>{title}</div>", unsafe_allow_html=True)
-            if tag == "[OWNER_NOTE]": st.markdown(f"<div class='owner-content'>{content}</div>", unsafe_allow_html=True)
-            else: st.write(content)
+    with report_placeholder:
+        st.divider()
+        res = st.session_state.rep
+        # เพิ่มหัวข้อ FUTURE เข้าไปในลิสต์แสดงผล
+        sections = [
+            ("🔍 สรุปการวิเคราะห์หน้างาน", "[ANALYSIS]"), 
+            ("⏱️ จุดวิกฤตที่ต้องตรวจสอบ", "[RISK]"), 
+            ("🚀 งานในอนาคตที่ต้องเตรียมตัว", "[FUTURE]"), # เพิ่มส่วนนี้
+            ("🏠 สิ่งที่เจ้าของบ้านต้องทราบ", "[OWNER_NOTE]")
+        ]
+        
+        for title, tag in sections:
+            if tag in res:
+                content = res.split(tag)[1].split("[")[0].strip()
+                st.markdown(f"<div class='section-header'>{title}</div>", unsafe_allow_html=True)
+                if tag == "[OWNER_NOTE]": st.markdown(f"<div class='owner-content'>{content}</div>", unsafe_allow_html=True)
+                else: st.write(content)
 
-    if st.session_state.qs:
-        st.write("")
-        st.markdown("<p style='font-size:0.85rem; font-weight:bold; color:#1E3A8A;'>💡 ถาม BHOON KHARN AI ต่อ:</p>", unsafe_allow_html=True)
-        qcols = st.columns(len(st.session_state.qs))
-        for i, qv in enumerate(st.session_state.qs):
-            # ใช้ปุ่มธรรมดา ไม่ใช้ rerun ในฟังก์ชันเพื่อให้เลื่อนจอน้อยลง
-            if qcols[i].button("🔎 " + qv, key=f"bkq_{i}", use_container_width=True):
-                ask_more(qv)
+        if st.session_state.qs:
+            st.write("")
+            st.markdown("<p style='font-size:0.85rem; font-weight:bold; color:#1E3A8A;'>💡 ถาม BHOON KHARN AI ต่อ:</p>", unsafe_allow_html=True)
+            qcols = st.columns(len(st.session_state.qs))
+            for i, qv in enumerate(st.session_state.qs):
+                if qcols[i].button("🔎 " + qv, key=f"bkq_{i}", use_container_width=True):
+                    ask_more(qv)
 
-    # Chat Display
-    for m in st.session_state.chat:
-        with st.chat_message(m["role"]): st.markdown(m["content"])
+        # Chat History
+        for m in st.session_state.chat:
+            with st.chat_message(m["role"]): st.markdown(m["content"])
 
-    # หมายเหตุ (ย้ายขึ้นมาให้อยู่เหนือ Input เพื่อไม่ให้จอกระโดด)
-    st.markdown("<div class='maroon-note'><strong>หมายเหตุ:</strong> ข้อมูลนี้ไม่สามารถนำไปใช้อ้างอิงทางกฎหมายได้</div>", unsafe_allow_html=True)
+        st.markdown("<div class='maroon-note'><strong>หมายเหตุ:</strong> ข้อมูลนี้ไม่สามารถนำไปใช้อ้างอิงทางกฎหมายได้</div>", unsafe_allow_html=True)
 
+    # วาง chat_input ไว้ล่างสุดเสมอ
     if ui := st.chat_input("สอบถามเพิ่มเติม..."):
         ask_more(ui)
-        st.rerun() # rerun เฉพาะตอนแชทเพื่อให้ข้อความใหม่ปรากฏ
+        st.rerun()
