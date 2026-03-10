@@ -3,7 +3,7 @@ import google.generativeai as genai
 from PIL import Image
 import re
 
-# --- 1. CONFIG & STYLE (ปรับปรุงการทับซ้อนและ Clean Look) ---
+# --- 1. CONFIG & STYLE (ปรับสีตัวอักษรโหมดเจ้าของบ้านให้เป็นสีมาตรฐาน) ---
 st.set_page_config(page_title="BHOON KHARN AI", layout="wide")
 
 st.markdown("""
@@ -12,7 +12,7 @@ st.markdown("""
     
     html, body, [class*="st-"] { 
         font-family: 'Sarabun', sans-serif; 
-        line-height: 1.8; /* เพิ่มระยะห่างบรรทัดป้องกันตัวหนังสือทับซ้อน */
+        line-height: 1.8; 
     }
     
     .main-title { color: #1E3A8A; text-align: center; font-weight: 700; margin-bottom: 30px; }
@@ -28,12 +28,12 @@ st.markdown("""
         padding-bottom: 5px;
     }
 
-    /* โหมดเจ้าของบ้าน - แบบไม่มีฉากหลัง (Clean Look) */
+    /* โหมดเจ้าของบ้าน - สีเดียวกับอันอื่น แต่เน้นขอบซ้าย */
     .owner-content { 
         border-left: 5px solid #1E3A8A; 
         padding-left: 20px; 
         margin: 20px 0;
-        color: #1A1A1A;
+        color: #31333F; /* สีมาตรฐานของ Streamlit */
         font-size: 1.1rem;
     }
     
@@ -63,13 +63,11 @@ def init_ai_engine():
     
     try:
         genai.configure(api_key=api_key)
-        # ใช้ Flash เพื่อความเร็วและประหยัดโควตา
         model = genai.GenerativeModel("models/gemini-1.5-flash")
         model.generate_content("test", generation_config={"max_output_tokens": 1})
         return model, "เชื่อมต่อสำเร็จ"
     except Exception:
         try:
-            # Fallback หากรุ่นหลักมีปัญหา
             for m in genai.list_models():
                 if 'generateContent' in m.supported_generation_methods:
                     return genai.GenerativeModel(m.name), "เชื่อมต่อสำเร็จ"
