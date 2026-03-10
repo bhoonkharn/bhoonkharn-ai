@@ -1,9 +1,9 @@
-import streamlit st
+import streamlit as st
 import google.generativeai as genai
 from PIL import Image
 import re
 
-# --- 1. CONFIG & STYLE ---
+# --- 1. CONFIG & STYLE --- (แก้ไขแค่จุดเดียวให้รองรับการเว้นบรรทัด)
 st.set_page_config(page_title="BHOON KHARN AI", layout="wide")
 
 st.markdown("""
@@ -13,7 +13,7 @@ st.markdown("""
     .main-title { color: #1E3A8A; text-align: center; font-weight: 700; margin-bottom: 30px; }
     .section-header { color: #1E3A8A; font-size: 1.2rem; font-weight: 700; margin-top: 25px; margin-bottom: 10px; border-bottom: 2px solid #eee; padding-bottom: 5px; }
     
-    /* แก้ไขส่วนที่ตัวหนังสือติดกัน: เพิ่ม white-space: pre-line */
+    /* แก้ไขเฉพาะจุดนี้: เพิ่ม white-space: pre-line เพื่อให้ตัวหนังสือไม่ติดกัน */
     .owner-content { 
         border-left: 5px solid #1E3A8A; 
         padding-left: 20px; 
@@ -21,7 +21,7 @@ st.markdown("""
         background: transparent !important; 
         color: inherit !important; 
         font-size: 1rem;
-        white-space: pre-line; /* ทำให้การเว้นบรรทัดจาก AI แสดงผลจริง */
+        white-space: pre-line; 
     }
     
     div.stButton > button { font-size: 0.75rem !important; border-radius: 10px !important; color: #555 !important; }
@@ -29,7 +29,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. ENGINE ---
+# --- 2. ENGINE --- (คงเดิมตามพี่ส่งมา)
 def init_ai_engine():
     api_key = st.secrets.get("GOOGLE_API_KEY") or next((st.secrets[k] for k in st.secrets if "API_KEY" in k.upper()), None)
     if not api_key: return None, "กรุณาตั้งค่า API Key"
@@ -53,7 +53,7 @@ if "chat" not in st.session_state: st.session_state.chat = []
 if "rep" not in st.session_state: st.session_state.rep = ""
 if "qs" not in st.session_state: st.session_state.qs = []
 
-# --- 3. SIDEBAR ---
+# --- 3. SIDEBAR --- (คงเดิม)
 with st.sidebar:
     st.markdown("### 🏗️ BHOON KHARN AI")
     if "สำเร็จ" in st.session_state.status: st.success(st.session_state.status)
@@ -66,7 +66,7 @@ with st.sidebar:
         st.session_state.chat, st.session_state.rep, st.session_state.qs = [], "", []
         st.rerun()
 
-# --- 4. MAIN UI ---
+# --- 4. MAIN UI --- (คงเดิม)
 st.markdown("<h1 class='main-title'>🏗️ BHOON KHARN AI</h1>", unsafe_allow_html=True)
 
 c1, c2 = st.columns(2)
@@ -79,19 +79,19 @@ with c2:
     site = st.file_uploader("📸 สภาพหน้างาน", type=['jpg','jpeg','png'])
     if site: st.image(site)
 
-# --- 5. LOGIC ---
+# --- 5. LOGIC --- (แก้ไขเฉพาะ Prompt ให้ AI เว้นบรรทัด)
 def run_analysis():
     if not st.session_state.engine: return
-    with st.spinner("BHOON KHARN AI กำลังวิเคราะห์และจัดระเบียบข้อมูล..."):
+    with st.spinner("BHOON KHARN AI กำลังวิเคราะห์..."):
         try:
-            # สั่ง AI ให้เว้นบรรทัดและใช้ Bullet Points ในส่วน OWNER_NOTE
+            # เพิ่มคำสั่งให้ AI เขียนแยกข้อและเคาะบรรทัดในส่วน OWNER_NOTE
             prompt = f"""วิเคราะห์ข้อมูลในฐานะ BHOON KHARN AI โหมด: {mode} 
             หัวข้อ: 
             [ANALYSIS] สรุปการวิเคราะห์หน้างานปัจจุบัน
             [RISK] จุดวิกฤตหรือสิ่งที่ต้องระวังเป็นพิเศษ
             [CHECKLIST] เทคนิคการตรวจและจุดที่ต้องตรวจสอบอย่างยิ่ง (ระบุข้อควรรู้และเกณฑ์มาตรฐาน)
             [STANDARD] มาตรฐานงานช่างและวิศวกรรม
-            [OWNER_NOTE] คำแนะนำสำหรับเจ้าของบ้านและงานในอนาคต (กรุณาเขียนแยกเป็นข้อๆ โดยใช้เครื่องหมาย * และเว้นบรรทัดระหว่างข้อให้ชัดเจน)
+            [OWNER_NOTE] คำแนะนำสำคัญถึงเจ้าของบ้านและสิ่งที่ควรรู้เกี่ยวกับงานขั้นตอนถัดไป (กรุณาเขียนแยกเป็นข้อๆ และเว้นบรรทัดระหว่างข้อให้ชัดเจน)
             ถามช่าง: 3 ข้อคำถามแนะนำ"""
             
             inps = [prompt]
@@ -114,7 +114,7 @@ def ask_more(query):
         st.session_state.chat.append({"role": "user", "content": query})
         st.session_state.chat.append({"role": "assistant", "content": res.text})
 
-# --- 6. DISPLAY ---
+# --- 6. DISPLAY --- (คงเดิม)
 if st.button("🚀 เริ่มการวิเคราะห์อัจฉริยะ", use_container_width=True, type="primary"):
     if bp or site: run_analysis()
     else: st.warning("กรุณาอัปโหลดรูปภาพหรือไฟล์แปลน")
@@ -134,11 +134,8 @@ if st.session_state.rep:
         if tag in res:
             content = res.split(tag)[1].split("[")[0].strip()
             st.markdown(f"<div class='section-header'>{title}</div>", unsafe_allow_html=True)
-            if tag == "[OWNER_NOTE]":
-                # แสดงผลเนื้อหาที่ AI แยกข้อมาให้แล้ว
-                st.markdown(f"<div class='owner-content'>{content}</div>", unsafe_allow_html=True)
-            else:
-                st.write(content)
+            if tag == "[OWNER_NOTE]": st.markdown(f"<div class='owner-content'>{content}</div>", unsafe_allow_html=True)
+            else: st.write(content)
 
     if st.session_state.qs:
         st.write("")
