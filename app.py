@@ -3,7 +3,7 @@ import google.generativeai as genai
 from PIL import Image
 import re
 
-# --- 1. CONFIG & STYLE --- (คงเดิมตามที่พี่ส่งมา)
+# --- 1. CONFIG & STYLE --- (ของพี่เดิมๆ)
 st.set_page_config(page_title="BHOON KHARN AI", layout="wide")
 
 st.markdown("""
@@ -18,21 +18,22 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. ENGINE --- (เน้นแก้ปัญหา 404 ให้เสถียร)
+# --- 2. ENGINE --- (ยกมาจากโค้ดที่พี่ส่งมาเป๊ะๆ ไม่แก้แล้วครับ)
 def init_ai_engine():
     api_key = st.secrets.get("GOOGLE_API_KEY") or next((st.secrets[k] for k in st.secrets if "API_KEY" in k.upper()), None)
     if not api_key: return None, "กรุณาตั้งค่า API Key"
     try:
         genai.configure(api_key=api_key)
-        # ใช้ลิสต์รุ่นที่น่าจะผ่านเพื่อกัน 404
-        for m_name in ["models/gemini-1.5-flash", "models/gemini-1.5-flash-latest", "gemini-1.5-flash"]:
-            try:
-                model = genai.GenerativeModel(m_name)
-                model.generate_content("test", generation_config={"max_output_tokens": 1})
-                return model, "เชื่อมต่อสำเร็จ"
-            except: continue
+        model = genai.GenerativeModel("models/gemini-1.5-flash")
+        model.generate_content("test", generation_config={"max_output_tokens": 1})
+        return model, "เชื่อมต่อสำเร็จ"
+    except Exception:
+        try:
+            for m in genai.list_models():
+                if 'generateContent' in m.supported_generation_methods:
+                    return genai.GenerativeModel(m.name), "เชื่อมต่อสำเร็จ"
+        except: pass
         return None, "การเชื่อมต่อขัดข้อง"
-    except Exception: return None, "การเชื่อมต่อขัดข้อง"
 
 if "engine" not in st.session_state:
     st.session_state.engine, st.session_state.status = init_ai_engine()
@@ -41,7 +42,7 @@ if "chat" not in st.session_state: st.session_state.chat = []
 if "rep" not in st.session_state: st.session_state.rep = ""
 if "qs" not in st.session_state: st.session_state.qs = []
 
-# --- 3. SIDEBAR --- (คงเดิม)
+# --- 3. SIDEBAR --- (ของพี่เดิมๆ)
 with st.sidebar:
     st.markdown("### 🏗️ BHOON KHARN AI")
     if "สำเร็จ" in st.session_state.status: st.success(st.session_state.status)
@@ -54,7 +55,7 @@ with st.sidebar:
         st.session_state.chat, st.session_state.rep, st.session_state.qs = [], "", []
         st.rerun()
 
-# --- 4. MAIN UI --- (คงเดิม)
+# --- 4. MAIN UI --- (ของพี่เดิมๆ)
 st.markdown("<h1 class='main-title'>🏗️ BHOON KHARN AI</h1>", unsafe_allow_html=True)
 
 c1, c2 = st.columns(2)
@@ -65,32 +66,23 @@ with c2:
     site = st.file_uploader("📸 สภาพหน้างาน", type=['jpg','jpeg','png'])
     if site: st.image(site)
 
-# --- 5. LOGIC --- (ปรับการดึงคำถามให้แม่นยำขึ้น)
+# --- 5. LOGIC --- (แก้แค่คำสั่ง Prompt ให้ดึงคำถามกลับมาครับ)
 def run_analysis():
     if not st.session_state.engine: return
-    with st.spinner("BHOON KHARN AI กำลังวิเคราะห์งานปัจจุบันและอนาคต..."):
+    with st.spinner("BHOON KHARN AI กำลังวิเคราะห์..."):
         try:
-            prompt = f"""วิเคราะห์ภาพในฐานะ BHOON KHARN AI โหมด: {mode} 
-            หัวข้อ: 
-            [ANALYSIS] สรุปหน้างานปัจจุบัน
-            [RISK] จุดวิกฤตที่ต้องระวังตอนนี้
-            [FUTURE] วิเคราะห์งานขั้นตอนถัดไปที่ต้องทำต่อและสิ่งที่ต้องเตรียมตัว
-            [OWNER_NOTE] สิ่งที่เจ้าของบ้านต้องทราบทั้งงานปัจจุบันและอนาคต
-            ถามช่าง: 3 ข้อคำถามแนะนำ"""
-            
+            # ปรับ Prompt ให้ระบุชัดเจนว่าต้องมี 'ถามช่าง: ' เพื่อให้ปุ่มแสดงผล
+            prompt = f"วิเคราะห์ภาพในฐานะ BHOON KHARN AI โหมด: {mode} หัวข้อ: [ANALYSIS], [RISK], [STANDARD], [OWNER_NOTE] และสิ่งที่ต้องเตรียมตัวในอนาคต สุดท้ายแนะนำ 3 คำถามที่ควรใช้ถามต่อ โดยขึ้นต้นว่า 'ถามช่าง: ' ทุกข้อ"
             inps = [prompt]
             if bp: inps.append(Image.open(bp))
             if site: inps.append(Image.open(site))
-            
             res = st.session_state.engine.generate_content(inps)
             txt = res.text
             
-            # --- แก้ไขจุดนี้: ปรับการดึงคำถามให้ยืดหยุ่นขึ้น ---
-            st.session_state.qs = [q.strip() for q in re.findall(r"(?:ถามช่าง|คำถามแนะนำ):\s*(.*)", txt)[:3]]
-            st.session_state.rep = re.sub(r"(?:ถามช่าง|คำถามแนะนำ):.*", "", txt, flags=re.DOTALL).strip()
-            # ---------------------------------------------
-            
-            st.session_state.chat = [] 
+            # ดึงคำถามกลับมาแสดงผล 3 ปุ่ม
+            st.session_state.qs = [q.strip() for q in re.findall(r"ถามช่าง:\s*(.*)", txt)[:3]]
+            st.session_state.rep = re.sub(r"ถามช่าง:.*", "", txt, flags=re.DOTALL).strip()
+            st.session_state.chat = []
         except Exception as e: st.error(str(e))
 
 def ask_more(query):
@@ -99,49 +91,37 @@ def ask_more(query):
         st.session_state.chat.append({"role": "user", "content": query})
         st.session_state.chat.append({"role": "assistant", "content": res.text})
 
-# --- 6. DISPLAY --- (ล็อกตำแหน่งจอไม่ให้เด้ง)
+# --- 6. DISPLAY --- (ของพี่เดิมๆ)
 if st.button("🚀 เริ่มการวิเคราะห์อัจฉริยะ", use_container_width=True, type="primary"):
     if bp or site:
         run_analysis()
     else: st.warning("กรุณาอัปโหลดรูปภาพ")
 
-# ล็อกพื้นที่แสดงผลเพื่อลดอาการจอกระตุก
-report_placeholder = st.container()
-
 if st.session_state.rep:
-    with report_placeholder:
-        st.divider()
-        res = st.session_state.rep
-        sections = [
-            ("🔍 สรุปการวิเคราะห์หน้างาน", "[ANALYSIS]"), 
-            ("⏱️ จุดวิกฤตที่ต้องตรวจสอบ", "[RISK]"), 
-            ("🚀 งานในอนาคตที่ต้องเตรียมตัว", "[FUTURE]"),
-            ("🏠 สิ่งที่เจ้าของบ้านต้องทราบ", "[OWNER_NOTE]")
-        ]
-        
-        for title, tag in sections:
-            if tag in res:
-                content = res.split(tag)[1].split("[")[0].strip()
-                st.markdown(f"<div class='section-header'>{title}</div>", unsafe_allow_html=True)
-                if tag == "[OWNER_NOTE]": st.markdown(f"<div class='owner-content'>{content}</div>", unsafe_allow_html=True)
-                else: st.write(content)
+    st.divider()
+    res = st.session_state.rep
+    # เพิ่มหัวข้อ อนาคต ลงในรายงาน
+    sections = [("🔍 สรุปการวิเคราะห์หน้างาน", "[ANALYSIS]"), ("⏱️ จุดวิกฤตที่ต้องตรวจสอบ", "[RISK]"), ("🏗️ มาตรฐานงานช่างและวิศวกรรม", "[STANDARD]"), ("🏠 สิ่งที่เจ้าของบ้านต้องทราบและงานอนาคต", "[OWNER_NOTE]")]
+    
+    for title, tag in sections:
+        if tag in res:
+            content = res.split(tag)[1].split("[")[0].strip()
+            st.markdown(f"<div class='section-header'>{title}</div>", unsafe_allow_html=True)
+            if tag == "[OWNER_NOTE]": st.markdown(f"<div class='owner-content'>{content}</div>", unsafe_allow_html=True)
+            else: st.write(content)
 
-        # แก้ไขจุดนี้: แสดงปุ่มคำถามเฉพาะเมื่อมีข้อมูลจริง
-        if st.session_state.qs:
-            # กรองค่าว่างออกเพื่อให้ชัวร์ว่ามีคำถามจริง
-            real_qs = [q for q in st.session_state.qs if q]
-            if real_qs:
-                st.write("")
-                st.markdown("<p style='font-size:0.85rem; font-weight:bold; color:#1E3A8A;'>💡 ถาม BHOON KHARN AI ต่อ:</p>", unsafe_allow_html=True)
-                qcols = st.columns(len(real_qs))
-                for i, qv in enumerate(real_qs):
-                    if qcols[i].button("🔎 " + qv, key=f"bkq_{i}", use_container_width=True):
-                        ask_more(qv)
+    if st.session_state.qs:
+        st.write("")
+        st.markdown("<p style='font-size:0.85rem; font-weight:bold; color:#1E3A8A;'>💡 ถาม BHOON KHARN AI ต่อ:</p>", unsafe_allow_html=True)
+        qcols = st.columns(len(st.session_state.qs))
+        for i, qv in enumerate(st.session_state.qs):
+            if qcols[i].button("🔎 " + qv, key=f"bkq_{i}", use_container_width=True):
+                ask_more(qv)
 
-        for m in st.session_state.chat:
-            with st.chat_message(m["role"]): st.markdown(m["content"])
+    for m in st.session_state.chat:
+        with st.chat_message(m["role"]): st.markdown(m["content"])
 
-        st.markdown("<div class='maroon-note'><strong>หมายเหตุ:</strong> ข้อมูลนี้ไม่สามารถนำไปใช้อ้างอิงทางกฎหมายได้</div>", unsafe_allow_html=True)
+    st.markdown("<div class='maroon-note'><strong>หมายเหตุ:</strong> ข้อมูลนี้ไม่สามารถนำไปใช้างอิงทางกฎหมายได้</div>", unsafe_allow_html=True)
 
     if ui := st.chat_input("สอบถามเพิ่มเติม..."):
         ask_more(ui)
