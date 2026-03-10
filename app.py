@@ -3,7 +3,7 @@ import google.generativeai as genai
 from PIL import Image
 import re
 
-# --- 1. CONFIG & STYLE --- (ของพี่เดิมๆ)
+# --- 1. CONFIG & STYLE --- (คงเดิมตามที่พี่ส่งมา)
 st.set_page_config(page_title="BHOON KHARN AI", layout="wide")
 
 st.markdown("""
@@ -18,7 +18,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. ENGINE --- (ยกมาจากโค้ดที่พี่ส่งมาเป๊ะๆ ไม่แก้แล้วครับ)
+# --- 2. ENGINE --- (คงเดิมตามชุดที่เสถียรที่สุดของพี่)
 def init_ai_engine():
     api_key = st.secrets.get("GOOGLE_API_KEY") or next((st.secrets[k] for k in st.secrets if "API_KEY" in k.upper()), None)
     if not api_key: return None, "กรุณาตั้งค่า API Key"
@@ -42,7 +42,7 @@ if "chat" not in st.session_state: st.session_state.chat = []
 if "rep" not in st.session_state: st.session_state.rep = ""
 if "qs" not in st.session_state: st.session_state.qs = []
 
-# --- 3. SIDEBAR --- (ของพี่เดิมๆ)
+# --- 3. SIDEBAR --- (คงเดิม)
 with st.sidebar:
     st.markdown("### 🏗️ BHOON KHARN AI")
     if "สำเร็จ" in st.session_state.status: st.success(st.session_state.status)
@@ -55,35 +55,44 @@ with st.sidebar:
         st.session_state.chat, st.session_state.rep, st.session_state.qs = [], "", []
         st.rerun()
 
-# --- 4. MAIN UI --- (ของพี่เดิมๆ)
+# --- 4. MAIN UI --- (แก้ไขจุดเดียว: เพิ่มการรองรับ PDF ในช่องแปลน)
 st.markdown("<h1 class='main-title'>🏗️ BHOON KHARN AI</h1>", unsafe_allow_html=True)
 
 c1, c2 = st.columns(2)
 with c1:
-    bp = st.file_uploader("📋 แปลนก่อสร้าง", type=['jpg','jpeg','png'])
-    if bp: st.image(bp)
+    # เพิ่ม 'pdf' เข้าไปใน type
+    bp = st.file_uploader("📋 แปลนก่อสร้าง", type=['jpg','jpeg','png','pdf'])
+    if bp:
+        if bp.type == "application/pdf":
+            st.info("📂 รับไฟล์แปลน PDF เรียบร้อย")
+        else:
+            st.image(bp)
 with c2:
     site = st.file_uploader("📸 สภาพหน้างาน", type=['jpg','jpeg','png'])
     if site: st.image(site)
 
-# --- 5. LOGIC --- (แก้แค่คำสั่ง Prompt ให้ดึงคำถามกลับมาครับ)
+# --- 5. LOGIC --- (คงเดิม)
 def run_analysis():
     if not st.session_state.engine: return
     with st.spinner("BHOON KHARN AI กำลังวิเคราะห์..."):
         try:
-            # ปรับ Prompt ให้ระบุชัดเจนว่าต้องมี 'ถามช่าง: ' เพื่อให้ปุ่มแสดงผล
-            prompt = f"วิเคราะห์ภาพในฐานะ BHOON KHARN AI โหมด: {mode} หัวข้อ: [ANALYSIS], [RISK], [STANDARD], [OWNER_NOTE] และสิ่งที่ต้องเตรียมตัวในอนาคต สุดท้ายแนะนำ 3 คำถามที่ควรใช้ถามต่อ โดยขึ้นต้นว่า 'ถามช่าง: ' ทุกข้อ"
+            prompt = f"วิเคราะห์ข้อมูลในฐานะ BHOON KHARN AI โหมด: {mode} หัวข้อ: [ANALYSIS], [RISK], [STANDARD], [OWNER_NOTE] และสิ่งที่ต้องเตรียมตัวในอนาคต สุดท้ายแนะนำ 3 คำถามที่ควรใช้ถามต่อ โดยขึ้นต้นว่า 'ถามช่าง: ' ทุกข้อ"
             inps = [prompt]
-            if bp: inps.append(Image.open(bp))
+            if bp:
+                # ถ้าเป็น PDF ส่งไฟล์ดิบไปเลย ถ้าเป็นรูปให้เปิดด้วย Image.open
+                if bp.type == "application/pdf":
+                    inps.append({"mime_type": "application/pdf", "data": bp.getvalue()})
+                else:
+                    inps.append(Image.open(bp))
             if site: inps.append(Image.open(site))
+            
             res = st.session_state.engine.generate_content(inps)
             txt = res.text
             
-            # ดึงคำถามกลับมาแสดงผล 3 ปุ่ม
             st.session_state.qs = [q.strip() for q in re.findall(r"ถามช่าง:\s*(.*)", txt)[:3]]
             st.session_state.rep = re.sub(r"ถามช่าง:.*", "", txt, flags=re.DOTALL).strip()
             st.session_state.chat = []
-        except Exception as e: st.error(str(e))
+        except Exception as e: st.error(f"เกิดข้อผิดพลาด: {str(e)}")
 
 def ask_more(query):
     if st.session_state.engine:
@@ -91,17 +100,21 @@ def ask_more(query):
         st.session_state.chat.append({"role": "user", "content": query})
         st.session_state.chat.append({"role": "assistant", "content": res.text})
 
-# --- 6. DISPLAY --- (ของพี่เดิมๆ)
+# --- 6. DISPLAY --- (คงเดิม)
 if st.button("🚀 เริ่มการวิเคราะห์อัจฉริยะ", use_container_width=True, type="primary"):
     if bp or site:
         run_analysis()
-    else: st.warning("กรุณาอัปโหลดรูปภาพ")
+    else: st.warning("กรุณาอัปโหลดรูปภาพหรือไฟล์แปลน")
 
 if st.session_state.rep:
     st.divider()
     res = st.session_state.rep
-    # เพิ่มหัวข้อ อนาคต ลงในรายงาน
-    sections = [("🔍 สรุปการวิเคราะห์หน้างาน", "[ANALYSIS]"), ("⏱️ จุดวิกฤตที่ต้องตรวจสอบ", "[RISK]"), ("🏗️ มาตรฐานงานช่างและวิศวกรรม", "[STANDARD]"), ("🏠 สิ่งที่เจ้าของบ้านต้องทราบและงานอนาคต", "[OWNER_NOTE]")]
+    sections = [
+        ("🔍 สรุปการวิเคราะห์หน้างาน", "[ANALYSIS]"), 
+        ("⏱️ จุดวิกฤตที่ต้องตรวจสอบ", "[RISK]"), 
+        ("🏗️ มาตรฐานงานช่างและวิศวกรรม", "[STANDARD]"), 
+        ("🏠 สิ่งที่เจ้าของบ้านต้องทราบและงานอนาคต", "[OWNER_NOTE]")
+    ]
     
     for title, tag in sections:
         if tag in res:
