@@ -3,7 +3,7 @@ import google.generativeai as genai
 from PIL import Image
 import re
 
-# --- 1. CONFIG & STYLE ---
+# --- 1. CONFIG & STYLE --- (เพิ่ม Style สำหรับกล่องติดต่อสอบถาม)
 st.set_page_config(page_title="BHOON KHARN AI", layout="wide")
 
 st.markdown("""
@@ -15,10 +15,23 @@ st.markdown("""
     .owner-content { border-left: 5px solid #1E3A8A; padding-left: 20px; margin: 20px 0; background: transparent !important; color: inherit !important; font-size: 1rem; white-space: pre-line; }
     div.stButton > button { font-size: 0.75rem !important; border-radius: 10px !important; color: #555 !important; }
     .maroon-note { color: #8B0000; font-size: 0.85rem; border-top: 1px solid #eee; margin-top: 40px; padding-top: 20px; text-align: center; }
+    
+    /* กล่องติดต่อทีมงาน BHOON KHARN */
+    .contact-box {
+        background-color: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 15px;
+        padding: 20px;
+        margin-top: 30px;
+        text-align: center;
+    }
+    .contact-title { color: #1E3A8A; font-weight: 700; font-size: 1.1rem; margin-bottom: 15px; }
+    .contact-info { font-size: 1rem; color: #334155; margin-bottom: 10px; }
+    .contact-link { color: #1E3A8A; text-decoration: none; font-weight: bold; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. ENGINE ---
+# --- 2. ENGINE --- (คงเดิมตามพี่ส่งมา)
 def init_ai_engine():
     api_key = st.secrets.get("GOOGLE_API_KEY") or next((st.secrets[k] for k in st.secrets if "API_KEY" in k.upper()), None)
     if not api_key: return None, "กรุณาตั้งค่า API Key"
@@ -42,7 +55,7 @@ if "chat" not in st.session_state: st.session_state.chat = []
 if "rep" not in st.session_state: st.session_state.rep = ""
 if "qs" not in st.session_state: st.session_state.qs = []
 
-# --- 3. SIDEBAR ---
+# --- 3. SIDEBAR --- (คงเดิม)
 with st.sidebar:
     st.markdown("### 🏗️ BHOON KHARN AI")
     if "สำเร็จ" in st.session_state.status: st.success(st.session_state.status)
@@ -55,7 +68,7 @@ with st.sidebar:
         st.session_state.chat, st.session_state.rep, st.session_state.qs = [], "", []
         st.rerun()
 
-# --- 4. MAIN UI ---
+# --- 4. MAIN UI --- (คงเดิม)
 st.markdown("<h1 class='main-title'>🏗️ BHOON KHARN AI</h1>", unsafe_allow_html=True)
 
 c1, c2 = st.columns(2)
@@ -68,7 +81,7 @@ with c2:
     site = st.file_uploader("📸 สภาพหน้างาน", type=['jpg','jpeg','png'])
     if site: st.image(site)
 
-# --- 5. LOGIC ---
+# --- 5. LOGIC --- (คงเดิม)
 def run_analysis():
     if not st.session_state.engine: return
     with st.spinner("BHOON KHARN AI กำลังวิเคราะห์..."):
@@ -92,7 +105,6 @@ def run_analysis():
             res = st.session_state.engine.generate_content(inps)
             txt = res.text
             
-            # แก้ไขจุดนี้: ดึงคำถามแบบแยกบรรทัดเพื่อไม่ให้ปุ่มรวมกัน
             raw_qs = re.findall(r"ถามช่าง:\s*(.*)", txt)
             st.session_state.qs = [q.strip() for q in raw_qs if q.strip()][:3]
             
@@ -106,7 +118,7 @@ def ask_more(query):
         st.session_state.chat.append({"role": "user", "content": query})
         st.session_state.chat.append({"role": "assistant", "content": res.text})
 
-# --- 6. DISPLAY ---
+# --- 6. DISPLAY --- (เพิ่มส่วนการติดต่อสอบถามทีมงาน)
 if st.button("🚀 เริ่มการวิเคราะห์อัจฉริยะ", use_container_width=True, type="primary"):
     if bp or site: run_analysis()
     else: st.warning("กรุณาอัปโหลดรูปภาพหรือไฟล์แปลน")
@@ -143,5 +155,25 @@ if st.session_state.rep:
     if ui := st.chat_input("สอบถามเพิ่มเติม..."):
         ask_more(ui)
         st.rerun()
+
+    # --- ส่วนที่เพิ่มใหม่: ช่องทางติดต่อรับคำแนะนำฟรี ---
+    st.markdown(f"""
+    <div class='contact-box'>
+        <div class='contact-title'>🛠️ รับคำแนะนำวิธีแก้ไขจากทีม BHOON KHARN (ฟรี)</div>
+        <div class='contact-info'>
+            📞 โทร: <a href='tel:0887776566' class='contact-link'>088-777-6566</a><br>
+            💬 Line ID: <span class='contact-link'>bhoonkharn</span>
+        </div>
+        <p style='font-size: 0.8rem; color: #64748b; margin-top: 10px;'>สแกน QR Code เพื่อเพิ่มเพื่อนและส่งรูปปรึกษาทีมงานได้ทันที</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # แสดง QR Code (ต้องมีรูปไฟล์ QR ในโฟลเดอร์เดียวกับโค้ด หรือใช้ Link รูปภาพออนไลน์)
+    col_left, col_mid, col_right = st.columns([1, 1, 1])
+    with col_mid:
+        # วิธีแสดง QR: พี่สามารถใส่ URL รูปภาพ QR ของพี่ในบรรทัดข้างล่างนี้ได้เลยครับ
+        # st.image("URL_รูปภาพ_QR_CODE_ของพี่", width=200)
+        # หรือถ้ายังไม่มีรูป ให้แสดงข้อความบอกแทน:
+        st.markdown("<div style='text-align:center;'>[ส่วนแสดง QR Code Line]</div>", unsafe_allow_html=True)
 
     st.markdown("<div class='maroon-note'><strong>หมายเหตุ:</strong> ข้อมูลนี้ไม่สามารถนำไปใช้างอิงทางกฎหมายได้</div>", unsafe_allow_html=True)
