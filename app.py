@@ -4,169 +4,132 @@ from PIL import Image
 import random
 import re
 
-# --- 1. CONFIG & STYLE ---
+# --- 1. CONFIG ---
 st.set_page_config(page_title="BHOON KHARN AI", layout="wide")
 
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap');
     html, body, [class*="st-"] { font-family: 'Sarabun', sans-serif; }
     .main-title { color: #1E3A8A; text-align: center; font-weight: 700; }
     .owner-box { background-color: #f0f4f8; border-left: 5px solid #1E3A8A; padding: 18px; border-radius: 5px; margin: 10px 0; }
-    .footer-note { color: #8B0000; font-size: 0.75rem; text-align: center; margin-top: 50px; opacity: 0.7; border-top: 1px solid #eee; padding-top: 15px; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. ENGINE (ระบบสุ่มรุ่นและ Fallback อัตโนมัติ) ---
-def get_api_key():
-    if "GOOGLE_API_KEY" in st.secrets: return st.secrets["GOOGLE_API_KEY"]
-    for k in st.secrets.keys():
-        if "API_KEY" in k.upper(): return st.secrets[k]
-    return None
-
+# --- 2. ENGINE (ระบบป้องกัน 404 ขั้นเด็ดขาด) ---
 def init_ai_engine():
-    api_key = get_api_key()
+    api_key = st.secrets.get("GOOGLE_API_KEY") or next((st.secrets[k] for k in st.secrets if "API_KEY" in k.upper()), None)
     if not api_key: return None, "❌ ไม่พบ API Key"
     
     try:
         genai.configure(api_key=api_key)
         
-        # 1. ลองดึงรายชื่อรุ่นที่มีในระบบจริงก่อน
-        real_available_models = []
-        try:
-            for m in genai.list_models():
-                if 'generateContent' in m.supported_generation_methods:
-                    real_available_models.append(m.name)
-        except: pass
+        # ค้นหารุ่นที่ "ใช้งานได้จริง" ในระบบของพี่ ณ ตอนนี้
+        valid_models = []
+        for m in genai.list_models():
+            # กรองเอาเฉพาะรุ่นที่รองรับการสร้างเนื้อหา (generateContent)
+            if 'generateContent' in m.supported_generation_methods:
+                valid_models.append(m.name)
+        
+        if not valid_models:
+            return None, "❌ ไม่พบรุ่น AI ที่เปิดให้ใช้งานในบัญชีนี้"
 
-        # 2. รายชื่อรุ่นที่เรียงจาก ใหม่ -> เก่า (Fallback List)
-        # ใส่ชื่อเต็มแบบ 'models/...' เพื่อป้องกัน 404
-        fallback_list = [
-            "models/gemini-1.5-flash-latest",
-            "models/gemini-1.5-flash",
-            "models/gemini-2.0-flash-exp",
-            "models/gemini-1.5-pro-latest",
-            "models/gemini-1.5-pro",
-            "models/gemini-pro-vision"
-        ]
+        # เรียงลำดับความฉลาด: 1.5-flash > 1.5-pro > อื่นๆ
+        # โดยการหาจากชื่อรุ่นที่มีอยู่จริง (ไม่ต้องเดาชื่อเอง)
+        best_model_name = ""
+        for preferred in ["1.5-flash", "1.5-pro", "gemini-pro"]:
+            for actual in valid_models:
+                if preferred in actual:
+                    best_model_name = actual
+                    break
+            if best_model_name: break
+        
+        if not best_model_name: best_model_name = valid_models[0]
 
-        # ผสมรายการที่เจอจริงกับรายการสำรอง (เอาที่เจอจริงขึ้นก่อน)
-        final_models = []
-        for m in real_available_models:
-            if m not in final_models: final_models.append(m)
-        for m in fallback_list:
-            if m not in final_models: final_models.append(m)
-
-        # 3. ลองเชื่อมต่อทีละตัวจนกว่าจะผ่าน
-        for model_name in final_models:
-            try:
-                # แก้ปัญหา 404 โดยการเช็คชื่อรุ่นให้ชัวร์
-                test_model = genai.GenerativeModel(model_name)
-                # ลองยิงทดสอบสั้นๆ
-                test_model.generate_content("Hi", generation_config={"max_output_tokens": 1})
-                return test_model, f"✅ พร้อมใช้งาน (รุ่น: {model_name})"
-            except Exception:
-                continue # ถ้าพัง ลองตัวถัดไป
-                
-        return None, "❌ ไม่สามารถเชื่อมต่อกับรุ่นใดๆ ได้เลย (เช็ค API Key ของคุณ)"
+        model = genai.GenerativeModel(model_name=best_model_name)
+        return model, f"✅ เชื่อมต่อสำเร็จ (ใช้รุ่น: {best_model_name})"
         
     except Exception as e:
-        return None, f"❌ ข้อผิดพลาดระบบ: {str(e)}"
+        return None, f"❌ ข้อผิดพลาด: {str(e)}"
 
-# ตรวจสอบและสร้าง Engine
-if "engine" not in st.session_state or st.session_state.engine is None:
+# ตรวจสอบ Engine
+if "engine" not in st.session_state:
     st.session_state.engine, st.session_state.status = init_ai_engine()
 
-# ค่าเริ่มต้น Session
-if "chat_history" not in st.session_state: st.session_state.chat_history = []
-if "analysis_result" not in st.session_state: st.session_state.analysis_result = ""
-if "suggested_qs" not in st.session_state: st.session_state.suggested_qs = []
+for k in ["chat_history", "analysis_result", "suggested_qs"]:
+    if k not in st.session_state: st.session_state[k] = [] if k != "analysis_result" else ""
 
 # --- 3. SIDEBAR ---
 with st.sidebar:
     st.markdown("### 🏗️ BHOON KHARN AI")
     st.info(st.session_state.status)
-    if st.button("🔄 สลับรุ่น AI / เชื่อมต่อใหม่", use_container_width=True):
+    if st.button("🔄 รีเซ็ตการเชื่อมต่อ", use_container_width=True):
         st.session_state.engine, st.session_state.status = init_ai_engine()
         st.rerun()
-    mode = st.radio("มุมมองการวิเคราะห์:", ["📊 เชิงเทคนิค", "🏠 สำหรับเจ้าของบ้าน"])
-    if st.button("🗑️ ล้างหน้าจอ", use_container_width=True):
-        st.session_state.chat_history, st.session_state.analysis_result, st.session_state.suggested_qs = [], "", []
-        st.rerun()
+    mode = st.radio("มุมมองการวิเคราะห์:", ["📊 เทคนิค", "🏠 เจ้าของบ้าน"])
 
 # --- 4. MAIN UI ---
 st.markdown("<h1 class='main-title'>🏗️ BHOON KHARN AI</h1>", unsafe_allow_html=True)
 
 c1, c2 = st.columns(2)
 with c1:
-    bp = st.file_uploader("📋 แนบแปลน (ถ้ามี)", type=['jpg','jpeg','png'])
+    bp = st.file_uploader("📋 แปลน", type=['jpg','jpeg','png'])
     if bp: st.image(bp)
 with c2:
-    site = st.file_uploader("📸 แนบรูปหน้างาน", type=['jpg','jpeg','png'])
+    site = st.file_uploader("📸 หน้างาน", type=['jpg','jpeg','png'])
     if site: st.image(site)
 
 # --- 5. LOGIC ---
 def run_analysis():
     if not st.session_state.engine:
-        st.error("AI ไม่พร้อมใช้งาน กรุณากดปุ่มลองเชื่อมต่อใหม่ที่เมนูด้านซ้าย")
+        st.error("AI ไม่พร้อมใช้งาน")
         return
 
-    with st.spinner("BHOON KHARN AI กำลังวิเคราะห์..."):
+    with st.spinner("AI กำลังวิเคราะห์..."):
         try:
-            prompt = f"คุณคือวิศวกรผู้เชี่ยวชาญ วิเคราะห์ภาพในโหมด {mode} สรุปหัวข้อ [ANALYSIS], [RISK], [STANDARD], [OWNER_NOTE] และจบด้วย 'ถามช่าง: ' 3 ข้อ"
+            p = f"คุณคือวิศวกรวิเคราะห์งานก่อสร้าง โหมด {mode} สรุปหัวข้อ [ANALYSIS], [RISK], [STANDARD], [OWNER_NOTE] และจบด้วย 'ถามช่าง: ' 3 ข้อ"
+            inps = [p]
+            if bp: inps.append(Image.open(bp))
+            if site: inps.append(Image.open(site))
             
-            payload = [prompt]
-            if bp: payload.append(Image.open(bp))
-            if site: payload.append(Image.open(site))
-            
-            response = st.session_state.engine.generate_content(payload)
+            # เรียกใช้งาน AI แบบไม่ระบุ API version ปล่อยให้ Library จัดการเอง
+            response = st.session_state.engine.generate_content(inps)
             txt = response.text
             
             st.session_state.suggested_qs = [q.strip() for q in re.findall(r"ถามช่าง:\s*(.*)", txt)[:3]]
             st.session_state.analysis_result = re.sub(r"ถามช่าง:.*", "", txt, flags=re.DOTALL).strip()
-            
         except Exception as e:
             st.error(f"การวิเคราะห์ล้มเหลว: {str(e)}")
 
-def ask_more(q):
-    if st.session_state.engine:
-        try:
-            res = st.session_state.engine.generate_content(f"ตอบคำถามในฐานะ BHOON KHARN AI: {q}")
-            st.session_state.chat_history.append({"role": "user", "content": q})
-            st.session_state.chat_history.append({"role": "assistant", "content": res.text})
-        except: st.error("ไม่สามารถตอบคำถามได้ในขณะนี้")
-
 # --- 6. DISPLAY ---
-if st.button("🚀 เริ่มวิเคราะห์อัจฉริยะ", use_container_width=True, type="primary"):
+if st.button("🚀 เริ่มวิเคราะห์", use_container_width=True, type="primary"):
     if bp or site: run_analysis()
-    else: st.warning("กรุณาใส่รูปภาพก่อนครับ")
+    else: st.warning("กรุณาแนบรูปภาพ")
 
 if st.session_state.analysis_result:
     st.divider()
     res = st.session_state.analysis_result
-    sections = [("🔍 วิเคราะห์", "[ANALYSIS]"), ("⏱️ จุดเสี่ยง", "[RISK]"), ("🏗️ มาตรฐาน", "[STANDARD]"), ("🏠 แนะนำเจ้าของบ้าน", "[OWNER_NOTE]")]
-    
-    for title, tag in sections:
+    for tit, tag in [("🔍 วิเคราะห์", "[ANALYSIS]"), ("⏱️ จุดเสี่ยง", "[RISK]"), ("🏗️ มาตรฐาน", "[STANDARD]"), ("🏠 เจ้าของบ้าน", "[OWNER_NOTE]")]:
         if tag in res:
             cont = res.split(tag)[1].split("[")[0].strip()
-            if tag == "[OWNER_NOTE]": st.markdown(f"<div class='owner-box'><b>{title}</b><br>{cont}</div>", unsafe_allow_html=True)
+            if tag == "[OWNER_NOTE]": st.markdown(f"<div class='owner-box'><b>{tit}</b><br>{cont}</div>", unsafe_allow_html=True)
             else:
-                with st.expander(f"**{title}**", expanded=True if tag=="[ANALYSIS]" else False): st.write(cont)
+                with st.expander(f"**{tit}**", expanded=True if tag=="[ANALYSIS]" else False): st.write(cont)
 
     if st.session_state.suggested_qs:
         st.write("---")
-        st.markdown("**💡 ลองถามต่อ:**")
         cols = st.columns(len(st.session_state.suggested_qs))
         for i, q in enumerate(st.session_state.suggested_qs):
-            if cols[i].button(f"💬 {q}", key=f"b_{i}", use_container_width=True):
-                ask_more(q)
+            if cols[i].button(f"💬 {q}", key=f"b_{i}"):
+                st.session_state.chat_history.append({"role": "user", "content": q})
+                res_q = st.session_state.engine.generate_content(f"ในฐานะ BHOON KHARN AI: {q}")
+                st.session_state.chat_history.append({"role": "assistant", "content": res_q.text})
                 st.rerun()
 
     for m in st.session_state.chat_history:
         with st.chat_message(m["role"]): st.markdown(m["content"])
-    
-    if u_i := st.chat_input("พิมพ์คำถามเพิ่มเติม..."):
-        ask_more(u_i)
+    if u_i := st.chat_input("ถามเพิ่มเติม..."):
+        st.session_state.chat_history.append({"role": "user", "content": u_i})
+        res_i = st.session_state.engine.generate_content(f"ในฐานะ BHOON KHARN AI: {u_i}")
+        st.session_state.chat_history.append({"role": "assistant", "content": res_i.text})
         st.rerun()
-
-st.markdown("<div class='footer-note'>ประเมินเบื้องต้นจากภาพเท่านั้น ไม่แทนที่การตรวจโดยวิศวกรวิชาชีพ</div>", unsafe_allow_html=True)
