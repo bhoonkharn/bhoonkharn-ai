@@ -3,7 +3,7 @@ import google.generativeai as genai
 from PIL import Image
 import re
 
-# --- 1. CONFIG & STYLE (ยึดตามโทนสีน้ำเงินและฟอนต์ Sarabun ของคุณ) ---
+# --- 1. CONFIG & STYLE (ยึดตามโทนสีน้ำเงินและฟอนต์ Sarabun ของคุณเป๊ะๆ) ---
 st.set_page_config(page_title="BHOON KHARN AI", layout="wide")
 
 st.markdown("""
@@ -23,33 +23,33 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. DYNAMIC ENGINE (ค้นหาตัวใหม่และฉลาดที่สุดก่อนเสมอ) ---
+# --- 2. ENGINE (ระบบเลือกตัวใหม่ที่สุดและใช้งานได้จริง - แก้ปัญหา 404) ---
 def init_ai_engine():
     api_key = st.secrets.get("GOOGLE_API_KEY") or next((st.secrets[k] for k in st.secrets if "API_KEY" in k.upper()), None)
-    if not api_key: return None, "กรุณาตั้งค่า API Key ใน Secrets"
+    if not api_key: return None, "กรุณาตั้งค่า API Key"
     
     try:
         genai.configure(api_key=api_key)
-        # สแกนหาโมเดลทั้งหมดที่รองรับ generateContent
-        available_models = [
-            m.name for m in genai.list_models() 
-            if 'generateContent' in m.supported_generation_methods
-        ]
         
-        # เรียงลำดับโมเดล: Pro จะถูกเลือกก่อน Flash และรุ่นที่เลขเวอร์ชั่นสูงกว่าจะถูกเลือกก่อน
-        # การ Sort แบบ reverse โดยปกติจะเอา 'gemini-1.5-pro' ขึ้นก่อน 'gemini-1.5-flash'
-        available_models.sort(reverse=True)
+        # 1. ดึงโมเดลทั้งหมดที่รองรับการ Gen ข้อความ
+        raw_models = [m for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+        
+        # 2. จัดลำดับ: Pro > Flash และ 1.5 > 1.0 (เรียงจากฉลาด/ใหม่ไปหาตัวเก่า)
+        # เราใช้ชื่อโมเดลเป็นตัวจัดลำดับ
+        sorted_models = sorted(raw_models, key=lambda x: ("pro" in x.name, "1.5" in x.name), reverse=True)
 
-        for m_name in available_models:
+        # 3. วนลูปทดสอบ: ตัวไหนไม่ติด 404 และใช้งานได้จริง เอาตัวนั้นทันที
+        for m in sorted_models:
             try:
-                # ทดสอบเรียกใช้โมเดลที่เลือกมา
-                test_model = genai.GenerativeModel(m_name)
-                test_model.generate_content("hi", generation_config={"max_output_tokens": 1})
-                return test_model, f"เชื่อมต่อสำเร็จ: {m_name.split('/')[-1]}"
+                model = genai.GenerativeModel(m.name)
+                # ทดสอบเรียกใช้จริงสั้นๆ (ถ้า 404 จะเด้งไป except ทันที)
+                model.generate_content("test", generation_config={"max_output_tokens": 1})
+                # ถ้าผ่านถึงตรงนี้ แสดงว่าตัวนี้ใช้ได้
+                return model, f"เชื่อมต่อสำเร็จ ({m.name.split('/')[-1]})"
             except:
-                continue # ถ้าติด 404 หรือปัญหาอื่นๆ ให้ลองตัวถัดไปในลิสต์ทันที
+                continue # ลองตัวถัดไปในลิสต์
                 
-        return None, "ไม่พบโมเดลที่รองรับในบัญชีของคุณ"
+        return None, "ไม่พบโมเดลที่พร้อมใช้งานในบัญชีของคุณ"
     except Exception as e:
         return None, f"การเชื่อมต่อขัดข้อง: {str(e)}"
 
@@ -60,15 +60,15 @@ if "chat" not in st.session_state: st.session_state.chat = []
 if "rep" not in st.session_state: st.session_state.rep = ""
 if "qs" not in st.session_state: st.session_state.qs = []
 
-# --- 3. ฟังก์ชันเสริม: กล่องเปรียบเทียบราคาวัสดุ ---
+# --- 3. ฟังก์ชันเสริมเปรียบเทียบวัสดุ (ส่วนที่เพิ่มเข้าไปใหม่) ---
 def render_comparison(material_name):
     st.markdown(f"<div class='comp-box'>", unsafe_allow_html=True)
     st.markdown(f"<h3 style='color:#1E3A8A; margin-top:0;'>📊 การเปรียบเทียบวัสดุ: {material_name}</h3>", unsafe_allow_html=True)
     c_a, c_b = st.columns(2)
-    with c_a: st.markdown("**🟢 เกรดมาตรฐาน:** เน้นความคุ้มค่า ได้มาตรฐาน มอก. เหมาะสำหรับงานทั่วไป")
-    with c_b: st.markdown("**🏆 เกรดพรีเมียม:** คุณสมบัติสูงพิเศษ อายุการใช้งานยาวนาน (แนะนำสำหรับงานโครงสร้าง)")
+    with c_a: st.markdown("**🟢 เกรดมาตรฐาน:** เน้นคุ้มค่า มอก. ทั่วไป เหมาะสำหรับงานที่เน้นประหยัดงบแต่ได้มาตรฐาน")
+    with c_b: st.markdown("**🏆 เกรดพรีเมียม:** มีคุณสมบัติพิเศษ (ทนทาน/ยืดหยุ่นสูง) แนะนำสำหรับงานโครงสร้างหลัก")
     
-    st.markdown("<p style='font-size:0.85rem; margin-top:10px;'>🛒 ตรวจสอบราคาสด (ร้านค้าทางการ):</p>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size:0.85rem; margin-top:10px;'>🛒 ตรวจสอบราคาสดจากร้านค้าทางการ (Official Mall):</p>", unsafe_allow_html=True)
     ac1, ac2, ac3 = st.columns(3)
     with ac1: st.markdown(f"<a href='https://shopee.co.th/search?keyword={material_name}&is_official_shop=true' class='aff-btn' target='_blank'>Shopee Mall</a>", unsafe_allow_html=True)
     with ac2: st.markdown(f"<a href='https://www.thaiwatsadu.com/th/search?q={material_name}' class='aff-btn' target='_blank'>Thai Watsadu</a>", unsafe_allow_html=True)
@@ -81,11 +81,11 @@ with st.sidebar:
     if "สำเร็จ" in st.session_state.status: st.success(st.session_state.status)
     else: st.error(st.session_state.status)
     
-    if st.button("🔄 รีเซ็ตระบบ AI", use_container_width=True):
+    if st.button("🔄 เริ่มต้นระบบใหม่", use_container_width=True):
         st.session_state.engine, st.session_state.status = init_ai_engine()
         st.rerun()
     
-    mode = st.radio("มุมมองการวิเคราะห์:", ["🏠 เจ้าของบ้าน", "📊 เทคนิค/วิศวกร"])
+    mode = st.radio("มุมมองการแสดงผล:", ["🏠 เจ้าของบ้าน", "📊 เทคนิค/วิศวกร"])
     
     if st.button("🗑️ ล้างประวัติงานตรวจ", use_container_width=True):
         st.session_state.chat, st.session_state.rep, st.session_state.qs = [], "", []
@@ -93,42 +93,42 @@ with st.sidebar:
 
 # --- 5. MAIN UI ---
 st.markdown("<h1 class='main-title'>🏗️ BHOON KHARN AI</h1>", unsafe_allow_html=True)
-# เพิ่ม Story AI เพื่อความว้าว
-st.markdown("<div class='story-text'>วิเคราะห์งานก่อสร้างด้วย AI วิศวกรรม คัดสรรวัสดุมาตรฐานสูงสุดเพื่อบ้านที่มั่นคงและปลอดภัยในระยะยาว</div>", unsafe_allow_html=True)
+# เพิ่ม Story Text (ส่วนใหม่)
+st.markdown("<div class='story-text'>วิเคราะห์งานก่อสร้างด้วย AI วิศวกรรมที่แม่นยำที่สุด คัดสรรวัสดุมาตรฐานสูงสุดเพื่อบ้านที่มั่นคงและปลอดภัย</div>", unsafe_allow_html=True)
 
 c1, c2 = st.columns(2)
 with c1:
-    bp = st.file_uploader("📋 ไฟล์แปลน (PDF/Image)", type=['jpg','jpeg','png','pdf'])
+    bp = st.file_uploader("📋 แปลนก่อสร้าง", type=['jpg','jpeg','png','pdf'])
     if bp:
-        if bp.type == "application/pdf": st.info("📂 ระบบรับไฟล์แปลน PDF เรียบร้อย")
+        if bp.type == "application/pdf": st.info("📂 รับไฟล์แปลน PDF เรียบร้อย")
         else: st.image(bp)
 with c2:
-    site = st.file_uploader("📸 รูปถ่ายหน้างาน", type=['jpg','jpeg','png'])
+    site = st.file_uploader("📸 สภาพหน้างาน", type=['jpg','jpeg','png'])
     if site: st.image(site)
 
 # --- 6. LOGIC & DISPLAY ---
 if st.button("🚀 เริ่มการวิเคราะห์อัจฉริยะ", use_container_width=True, type="primary"):
     if not (bp or site):
-        st.warning("กรุณาอัปโหลดรูปภาพก่อนเริ่มงาน")
+        st.warning("กรุณาอัปโหลดรูปภาพ")
     else:
-        with st.spinner("AI กำลังเลือกวัสดุและวิเคราะห์มาตรฐานวิศวกรรม..."):
+        with st.spinner("AI กำลังวิเคราะห์ข้อมูลและเลือกวัสดุ..."):
             try:
-                # ปรับ Prompt เพื่อสกัดชื่อวัสดุมาเข้าตารางเปรียบเทียบราคา
+                # ปรับ Prompt เพื่อให้ AI สกัดชื่อวัสดุหลักออกมาใช้ในระบบเปรียบเทียบ
                 prompt = f"วิเคราะห์ภาพโหมด {mode} หัวข้อ: [ANALYSIS], [RISK], [CHECKLIST], [STANDARD], [OWNER_NOTE] และระบุชื่อวัสดุหลัก 1 อย่างท้ายรายงานในรูปแบบ [MATERIAL:ชื่อวัสดุ]"
                 inps = [prompt]
                 if bp:
                     if bp.type == "application/pdf": inps.append({"mime_type":"application/pdf","data":bp.getvalue()})
                     else: inps.append(Image.open(bp))
-                if site: inps.append(Image.append(site) if hasattr(Image, "append") else Image.open(site))
+                if site: inps.append(Image.open(site))
                 
                 res = st.session_state.engine.generate_content(inps)
                 st.session_state.rep = res.text
             except Exception as e:
-                st.error(f"เกิดข้อผิดพลาดในการประมวลผล: {str(e)}")
+                st.error(f"เกิดข้อผิดพลาดในการวิเคราะห์: {str(e)}")
 
 if st.session_state.rep:
     st.divider()
-    sections = [("🔍 ผลการวิเคราะห์", "[ANALYSIS]"), ("⚠️ จุดเสี่ยงวิกฤต", "[RISK]"), ("📝 เทคนิคการตรวจงาน", "[CHECKLIST]"), ("🏗️ มาตรฐานวิศวกรรม", "[STANDARD]"), ("🏠 คำแนะนำสำหรับเจ้าของบ้าน", "[OWNER_NOTE]")]
+    sections = [("🔍 สรุปผลการวิเคราะห์", "[ANALYSIS]"), ("⚠️ จุดวิกฤต", "[RISK]"), ("📝 เทคนิคการตรวจ", "[CHECKLIST]"), ("🏗️ มาตรฐานวิศวกรรม", "[STANDARD]"), ("🏠 แนะนำเจ้าของบ้าน", "[OWNER_NOTE]")]
     for title, tag in sections:
         if tag in st.session_state.rep:
             content = st.session_state.rep.split(tag)[1].split("[")[0].strip()
@@ -136,9 +136,9 @@ if st.session_state.rep:
             if tag == "[OWNER_NOTE]": st.markdown(f"<div class='owner-content'>{content}</div>", unsafe_allow_html=True)
             else: st.write(content)
     
-    # ดึงชื่อวัสดุมาเข้า Plugin เปรียบเทียบราคา (ส่วนเสริม)
+    # ดึงชื่อวัสดุมาแสดงกล่องเปรียบเทียบราคา (ส่วนเสริม)
     mat_match = re.search(r"\[MATERIAL:(.*)\]", st.session_state.rep)
     if mat_match:
         render_comparison(mat_match.group(1).strip())
 
-    st.markdown(f"<div style='text-align:center; margin-top:30px; border-top:1px solid #eee; padding-top:20px; font-size:0.85rem; color:#8B0000;'>หมายเหตุ: ข้อมูล AI เป็นเพียงคำแนะนำเบื้องต้น ไม่สามารถใช้อ้างอิงทางกฎหมายได้</div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='text-align:center; margin-top:30px; border-top:1px solid #eee; padding-top:20px; font-size:0.85rem; color:#8B0000;'>หมายเหตุ: ข้อมูล AI เบื้องต้น ไม่สามารถใช้อ้างอิงทางกฎหมายได้</div>", unsafe_allow_html=True)
