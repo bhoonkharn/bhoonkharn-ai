@@ -1,7 +1,7 @@
 import streamlit as st, google.generativeai as genai, re
 from PIL import Image
 
-# --- 1. CONFIG & CSS (ยึดตามดีไซน์เดิมที่คุณเลือกไว้) ---
+# --- 1. CONFIG & CSS (ดีไซน์เดิมที่คุณเลือกไว้) ---
 st.set_page_config(page_title="BHOON KHARN AI", layout="wide")
 st.markdown("""<style>
     @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;700&display=swap');
@@ -16,7 +16,7 @@ st.markdown("""<style>
     .aff-btn { display: block; text-align: center; padding: 6px; margin: 4px 0; font-size: 0.7rem; border-radius: 4px; text-decoration: none; border: 1px solid #ddd; color: #555; font-weight: bold; }
 </style>""", unsafe_allow_html=True)
 
-# --- 2. ส่วนเสริมใหม่ (ไม่แก้ของเดิม) ---
+# --- 2. ส่วนเสริมใหม่: เปรียบเทียบวัสดุ (เพิ่มต่อท้าย ไม่แก้ของเดิม) ---
 def render_comparison(material_name):
     st.markdown(f"<div class='comp-box'>", unsafe_allow_html=True)
     st.markdown(f"<p style='color:var(--bk-gold); font-weight:bold;'>📊 เปรียบเทียบวัสดุ: {material_name}</p>", unsafe_allow_html=True)
@@ -25,28 +25,34 @@ def render_comparison(material_name):
     with c_b: st.markdown("<p style='font-size:0.75rem;'><b>🏆 พรีเมียม:</b> ทนทานพิเศษ เกรดสูงสุดสำหรับงานวิศวกรรม</p>", unsafe_allow_html=True)
     
     ac1, ac2, ac3 = st.columns(3)
+    # ลิงก์ไปยังร้านค้าหลัก
     with ac1: st.markdown(f"<a href='https://shopee.co.th/search?keyword={material_name}&is_official_shop=true' class='aff-btn' target='_blank'>Shopee Mall</a>", unsafe_allow_html=True)
     with ac2: st.markdown(f"<a href='https://www.thaiwatsadu.com/th/search?q={material_name}' class='aff-btn' target='_blank'>Thai Watsadu</a>", unsafe_allow_html=True)
     with ac3: st.markdown(f"<a href='https://www.homepro.co.th/search?q={material_name}' class='aff-btn' target='_blank'>HomePro</a>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
-# --- 3. ของเดิมของคุณ (ห้ามแก้) ---
+# --- 3. การตั้งค่า AI (ใช้แบบเดิมที่คุณรันผ่าน 100%) ---
 def init_ai_engine():
+    # ดึง API Key จาก Secrets
     api_key = st.secrets.get("GOOGLE_API_KEY") or next((st.secrets[k] for k in st.secrets if "API_KEY" in k.upper()), None)
     if not api_key: return None, "No API Key"
     try:
         genai.configure(api_key=api_key)
-        # ใช้บรรทัดเดิมที่คุณเคยใช้แล้วผ่าน (แก้ไขกลับเป็น flash ตัวเดิม)
+        # ใช้ชื่อรุ่น gemini-1.5-flash แบบมาตรฐาน (ไม่ใส่ models/ นำหน้าเพื่อเลี่ยงบั๊ก v1beta)
         model = genai.GenerativeModel("gemini-1.5-flash")
         return model, "Ready"
-    except:
-        return None, "Offline"
+    except Exception as e:
+        return None, f"Offline: {str(e)}"
 
-if "engine" not in st.session_state: st.session_state.engine, st.session_state.status = init_ai_engine()
+# ตรวจสอบสถานะการเชื่อมต่อ
+if "engine" not in st.session_state: 
+    st.session_state.engine, st.session_state.status = init_ai_engine()
+
+# เตรียมตัวแปรเก็บข้อมูล
 for s in ["chat", "rep", "qs"]: 
     if s not in st.session_state: st.session_state[s] = [] if s != "rep" else ""
 
-# --- 4. SIDEBAR & HEADER ---
+# --- 4. หน้าจอหลัก และแถบข้าง ---
 with st.sidebar:
     st.markdown("### BHOON KHARN")
     st.caption(f"Status: {st.session_state.status}")
@@ -59,7 +65,7 @@ with st.sidebar:
 st.markdown("<div class='main-title'>BHOON KHARN AI</div>", unsafe_allow_html=True)
 st.markdown("<div class='story-text'>วิเคราะห์งานก่อสร้างด้วย AI วิศวกรรม คัดสรรวัสดุมาตรฐานจากร้านค้าทางการเพื่อความมั่นใจสูงสุด</div>", unsafe_allow_html=True)
 
-# --- 5. การวิเคราะห์ (ใช้ตรรกะเดิมของคุณ) ---
+# --- 5. ส่วนอัปโหลดและประมวลผล (โครงสร้างเดิม) ---
 c1, c2 = st.columns(2)
 with c1: 
     bp = st.file_uploader("📋 แปลน (PDF/JPG)", type=['jpg','jpeg','png','pdf'])
@@ -69,22 +75,26 @@ with c2:
     if site: st.image(site)
 
 if st.button("🚀 เริ่มการวิเคราะห์อัจฉริยะ", use_container_width=True, type="primary"):
-    if not (bp or site): st.warning("กรุณาอัปโหลดรูปภาพ")
+    if not (bp or site): 
+        st.warning("กรุณาอัปโหลดรูปภาพ")
     else:
         with st.spinner("Analyzing..."):
             try:
-                # Prompt เดิม เพิ่มแค่คำสั่งสกัดชื่อวัสดุ
-                prompt = f"วิเคราะห์จากภาพโหมด {mode} หัวข้อ: [ANALYSIS], [RISK], [CHECKLIST], [STANDARD], [OWNER_NOTE] และระบุชื่อวัสดุหลักที่จำเป็นที่สุดท้ายรายงานในรูปแบบ [MATERIAL:ชื่อวัสดุ]"
+                # Prompt เดิม เพิ่มเติมคือสั่งให้ AI ช่วยระบุชื่อวัสดุหลัก
+                prompt = f"วิเคราะห์ภาพโหมด {mode} หัวข้อ: [ANALYSIS], [RISK], [CHECKLIST], [STANDARD], [OWNER_NOTE] และระบุชื่อวัสดุหลักท้ายรายงานในรูปแบบ [MATERIAL:ชื่อวัสดุ]"
                 inps = [prompt]
                 if bp: 
                     if bp.type == "application/pdf": inps.append({"mime_type":"application/pdf","data":bp.getvalue()})
                     else: inps.append(Image.open(bp))
                 if site: inps.append(Image.open(site))
+                
+                # เรียกใช้ AI
                 res = st.session_state.engine.generate_content(inps)
                 st.session_state.rep = res.text
-            except Exception as e: st.error(str(e))
+            except Exception as e: 
+                st.error(f"เกิดข้อผิดพลาด: {str(e)}")
 
-# --- 6. แสดงผล (แทรกส่วนใหม่เข้าไปท้ายรายงาน) ---
+# --- 6. แสดงผลการวิเคราะห์ ---
 if st.session_state.rep:
     st.divider()
     sections = [("🔍 วิเคราะห์", "[ANALYSIS]"), ("⚠️ ความเสี่ยง", "[RISK]"), ("📝 เทคนิคการตรวจ", "[CHECKLIST]"), ("🏗️ มาตรฐาน", "[STANDARD]"), ("🏠 แนะนำเจ้าของบ้าน", "[OWNER_NOTE]")]
@@ -92,11 +102,14 @@ if st.session_state.rep:
         if tag in st.session_state.rep:
             content = st.session_state.rep.split(tag)[1].split("[")[0].strip()
             st.markdown(f"<div class='section-header'>{title}</div>", unsafe_allow_html=True)
-            if tag == "[OWNER_NOTE]": st.markdown(f"<div class='owner-content'>{content}</div>", unsafe_allow_html=True)
-            else: st.write(content)
+            if tag == "[OWNER_NOTE]": 
+                st.markdown(f"<div class='owner-content'>{content}</div>", unsafe_allow_html=True)
+            else: 
+                st.write(content)
     
-    # เรียกใช้ฟังก์ชันเปรียบเทียบ (ส่วนเสริม)
+    # ดึงชื่อวัสดุมาเข้าฟังก์ชันเปรียบเทียบ (ส่วนเสริมใหม่)
     mat_match = re.search(r"\[MATERIAL:(.*)\]", st.session_state.rep)
-    render_comparison(mat_match.group(1) if mat_match else "วัสดุก่อสร้าง")
+    material_to_compare = mat_match.group(1) if mat_match else "วัสดุก่อสร้าง"
+    render_comparison(material_to_compare)
 
     st.markdown(f"<div style='text-align:center; margin-top:30px; border-top:1px solid #eee; padding-top:20px;'>🛠️ ปรึกษาฟรี: 088-777-6566 | Line: @bhoonkharn</div>", unsafe_allow_html=True)
