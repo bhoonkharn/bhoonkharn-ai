@@ -29,24 +29,27 @@ def render_comparison(material_name):
     with ac3: st.markdown(f"<a href='https://www.homepro.co.th/search?q={material_name}' class='aff-btn' target='_blank'>HomePro</a>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
-# --- 3. CORE ENGINE (แก้ไขจุด Error 404: เลือกตัวที่รองรับและใหม่ที่สุด) ---
+# --- 3. CORE ENGINE (แก้ปัญหา 404 แบบถาวร) ---
 def init_ai_engine():
     api_key = st.secrets.get("GOOGLE_API_KEY") or next((st.secrets[k] for k in st.secrets if "API_KEY" in k.upper()), None)
     if not api_key: return None, "No API Key"
     try:
         genai.configure(api_key=api_key)
-        # กรองเฉพาะโมเดลที่รองรับ generateContent และเรียงลำดับจากใหม่ไปเก่า
-        available_models = [
-            m.name for m in genai.list_models() 
-            if 'generateContent' in m.supported_generation_methods
-        ]
-        # ค้นหาตัวที่ใหม่กว่า 1.5-flash ถ้ามี หรือใช้ 1.5-flash ตัวที่ถูกต้อง
-        target_model = "models/gemini-1.5-flash" # Default
-        for m in sorted(available_models, reverse=True):
-            if "1.5" in m: # เน้นตระกูล 1.5 ที่เสถียรและใหม่
-                target_model = m
-                break
-        return genai.GenerativeModel(target_model), "Ready"
+        # ขั้นตอนที่ 1: หาลิสต์โมเดลที่ใช้งานได้จริง
+        models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+        
+        # ขั้นตอนที่ 2: ลองเรียกตัวที่ใหม่ที่สุดก่อน (เช่น flash-002 หรือ Pro)
+        for m_name in sorted(models, reverse=True):
+            try:
+                test_model = genai.GenerativeModel(m_name)
+                # ทดสอบเรียกสั้นๆ เพื่อเช็กว่า 404 ไหม
+                test_model.generate_content("Hi", generation_config={"max_output_tokens": 1})
+                return test_model, "Ready"
+            except:
+                continue
+        
+        # ขั้นตอนที่ 3: ถ้าข้างบนล้มเหลว ให้ใช้ตัวมาตรฐานที่เสถียรที่สุด
+        return genai.GenerativeModel("gemini-1.5-flash"), "Ready"
     except Exception as e:
         return None, f"Offline: {str(e)}"
 
