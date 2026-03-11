@@ -6,7 +6,7 @@ import os        # ดึงค่าจาก Google Cloud
 import random    # สลับ 7 คีย์
 from datetime import datetime
 
-# --- 1. CONFIG & STYLE (Premium Dark Brown & Gold) ---
+# --- 1. CONFIG & STYLE (แม่แบบเดิม: Premium Dark Brown & Gold) ---
 st.set_page_config(page_title="BHOON KHARN AI", layout="wide")
 
 st.markdown("""
@@ -21,7 +21,7 @@ st.markdown("""
     .section-header { color: var(--bk-gold); font-size: 1.2rem; font-weight: 700; border-bottom: 1px solid rgba(181, 148, 115, 0.3); padding-bottom: 8px; margin-top: 30px; margin-bottom: 15px; }
     .checklist-header { color: var(--bk-gold); font-size: 1.1rem; font-weight: 700; margin-top: 30px; margin-bottom: 10px; }
     
-    /* Price Comparison Card (Fixed Rendering) */
+    /* Price Comparison Card (Snapshot Style) */
     .comp-card { background: var(--bk-card); border-radius: 12px; padding: 15px; text-align: center; color: #333; box-shadow: 0 4px 15px rgba(0,0,0,0.5); height: 100%; display: block; border: 1px solid transparent; }
     .store-tag { font-weight: 700; font-size: 0.85rem; padding: 4px 0; border-radius: 4px; color: white; margin-bottom: 12px; display: block; }
     
@@ -38,7 +38,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. ENGINE (แม่แบบเดิม 100% - ห้ามแก้) ---
+# --- 2. ENGINE (แม่แบบเดิม - ปรับแก้ลำดับ: เก่า/ประหยัด ไปหา ใหม่/ฉลาด) ---
 def init_ai_engine():
     raw_keys = os.getenv("GOOGLE_API_KEY", "")
     api_keys = [k.strip() for k in raw_keys.split(",") if k.strip()]
@@ -52,13 +52,24 @@ def init_ai_engine():
     selected_key = random.choice(api_keys)
     try:
         genai.configure(api_key=selected_key)
-        models = [m for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        models.sort(key=lambda x: ("pro" in x.name, "1.5" in x.name), reverse=True)
-        for m_info in models:
+        # ดึงโมเดลทั้งหมดที่รองรับ
+        all_m = [m for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+        
+        # ปรับแก้ลำดับตามสั่ง: เอาตัวเก่า/ตัวประหยัดขึ้นก่อน (Flash > Pro, 1.0 > 1.5)
+        # และผลักพวก Robotics/Preview ไปไว้ท้ายสุดเพื่อกัน Quota เต็ม
+        all_m.sort(key=lambda x: (
+            "robotics" in x.name, # Robotics อยู่ท้ายสุด
+            "preview" in x.name,  # Preview อยู่ท้ายสุด
+            "pro" in x.name,      # Pro อยู่หลัง Flash
+            "1.5" in x.name       # 1.5 อยู่หลัง 1.0
+        ))
+
+        for m_info in all_m:
             try:
                 model = genai.GenerativeModel(m_info.name)
+                # ทดสอบเรียกใช้สั้นๆ เพื่อป้องกัน Error 404/429
                 model.generate_content("test", generation_config={"max_output_tokens": 1})
-                return model, "เชื่อมต่อสำเร็จ" 
+                return model, "เชื่อมต่อสำเร็จ (โหมดเทส)" 
             except: continue
         return None, "Offline"
     except Exception as e: return None, f"Error: {str(e)}"
@@ -69,21 +80,17 @@ if "engine" not in st.session_state:
 for s in ["chat", "rep", "materials"]: 
     if s not in st.session_state: st.session_state[s] = [] if s != "rep" else ""
 
-# --- 3. UI FUNCTIONS (Fixed Rendering) ---
+# --- 3. UI FUNCTIONS (Snapshot Price & Real Links) ---
 def render_comparison_grid(material_name):
     st.markdown(f"<div class='section-header'>⚖️ เปรียบเทียบราคาล่าสุด: {material_name} (Snapshot)</div>", unsafe_allow_html=True)
     
-    # ฐานข้อมูลรูปภาพตัวอย่างวัสดุ
     img_db = {
         "ปูน": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400",
         "สี": "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=400",
-        "เหล็ก": "https://images.unsplash.com/photo-1516135043105-08678853177f?w=400",
-        "ไม้": "https://images.unsplash.com/photo-1533090161767-e6ffed986c88?w=400",
-        "ท่อ": "https://images.unsplash.com/photo-1614292244587-291771960207?w=400"
+        "เหล็ก": "https://images.unsplash.com/photo-1516135043105-08678853177f?w=400"
     }
     cur_img = img_db.get(next((k for k in img_db if k in material_name), "ปูน"))
 
-    # Snapshot Price Logic
     base = random.randint(140, 480)
     today = datetime.now().strftime("%d/%m/%Y")
     stores = [
@@ -96,10 +103,8 @@ def render_comparison_grid(material_name):
     
     min_p = min(s['price'] for s in stores)
     cols = st.columns(5)
-    
     for i, s_data in enumerate(stores):
         best_label = "<div class='best-badge'>ถูกที่สุดตอนนี้</div>" if s_data['price'] == min_p else ""
-        # เขียน HTML แบบบรรทัดเดียวเพื่อกัน Markdown Parser เข้าใจผิด
         card_html = f"<div class='comp-card'><div class='store-tag' style='background:{s_data['color']}'>{s_data['name']}</div><img src='{cur_img}' class='img-real'>{best_label}<div class='price-val'>฿{s_data['price']}</div><div class='update-time'>อัปเดตเมื่อ {today}</div><a href='{s_data['url']}' class='btn-buy-now' target='_blank'>ดูหน้าเว็บจริง</a></div>"
         cols[i].markdown(card_html, unsafe_allow_html=True)
 
@@ -113,7 +118,7 @@ with st.sidebar:
         st.session_state.materials, st.session_state.rep = [], ""; st.rerun()
 
 st.markdown("<div class='main-title'>BHOON KHARN AI</div>", unsafe_allow_html=True)
-st.markdown("<div class='story-text'>วิเคราะห์หน้างานด้วย AI พร้อมระบบเปรียบเทียบราคาล่าสุดจาก 5 ห้างวัสดุชั้นนำ เพื่อประโยชน์สูงสุดของเจ้าของบ้าน</div>", unsafe_allow_html=True)
+st.markdown("<div class='story-text'>วิเคราะห์หน้างานด้วย AI วิศวกรรม คัดสรรวัสดุมาตรฐานจาก 5 ห้างวัสดุชั้นนำ (โหมดเทสประสิทธิภาพ)</div>", unsafe_allow_html=True)
 
 c1, c2 = st.columns(2)
 with c1:
@@ -125,10 +130,9 @@ with c2:
 
 def run_analysis():
     if not st.session_state.engine: return
-    with st.spinner("AI กำลังวิเคราะห์วัสดุและเช็คราคา..."):
+    with st.spinner("AI กำลังวิเคราะห์สเปกวัสดุ..."):
         try:
-            # ปรับ Prompt ให้ส่ง MATERIALS มาในรูปแบบที่ดึงง่ายขึ้น
-            prompt = f"วิเคราะห์ภาพโหมด {mode} หัวข้อ: [ANALYSIS], [RISK], [CHECKLIST], [STANDARD], [OWNER_NOTE] และระบุรายการวัสดุจุกจิกทั้งหมดมาในรูปแบบ MATERIALS: item1, item2, item3 และระบุชื่อวัสดุหลักที่จะเทียบราคาในรูปแบบ COMPARE: ชื่อวัสดุ"
+            prompt = f"วิเคราะห์ภาพโหมด {mode} หัวข้อ: [ANALYSIS], [RISK], [CHECKLIST], [STANDARD], [OWNER_NOTE] และระบุวัสดุจุกจิกใน MATERIALS: item1, item2... และวัสดุหลักที่จะเทียบราคาใน COMPARE: ชื่อวัสดุ"
             inps = [prompt]
             if bp: 
                 if bp.type == "application/pdf": inps.append({"mime_type": "application/pdf", "data": bp.getvalue()})
@@ -138,18 +142,17 @@ def run_analysis():
             res = st.session_state.engine.generate_content(inps)
             st.session_state.rep = res.text
             
-            # Robust Material Extract
             m_match = re.search(r"MATERIALS:\s*(.*)", res.text, re.IGNORECASE)
             if m_match:
                 mat_text = m_match.group(1).split("[")[0].strip()
                 st.session_state.materials = [m.strip() for m in mat_text.split(",") if m.strip()]
-        except Exception as e: st.error(str(e))
+        except Exception as e: st.error(f"โควตาเต็มหรือเกิดข้อผิดพลาด: {str(e)}")
 
 if st.button("🚀 เริ่มการวิเคราะห์อัจฉริยะ", use_container_width=True, type="primary"):
     if bp or site: run_analysis()
     else: st.warning("กรุณาอัปโหลดรูปภาพ")
 
-# --- 5. DISPLAY ---
+# --- 5. DISPLAY (แม่แบบเดิม) ---
 if st.session_state.rep:
     st.divider()
     sections = [("🔍 สรุปการวิเคราะห์", "[ANALYSIS]"), ("⚠️ จุดวิกฤต", "[RISK]"), ("📝 เทคนิคการตรวจ", "[CHECKLIST]"), ("🏗️ มาตรฐานวิศวกรรม", "[STANDARD]"), ("🏠 คำแนะนำเจ้าของบ้าน", "[OWNER_NOTE]")]
@@ -166,7 +169,6 @@ if st.session_state.rep:
         for i, item in enumerate(st.session_state.materials):
             cols_m[i % 3].checkbox(item, key=f"mat_{i}")
 
-    # ดึงชื่อวัสดุมาเทียบราคา
     c_match = re.search(r"COMPARE:\s*(.*)", st.session_state.rep, re.IGNORECASE)
     if c_match:
         mat_name = c_match.group(1).split("[")[0].strip()
