@@ -1,71 +1,82 @@
 import streamlit as st, google.generativeai as genai, re
 from PIL import Image
 
-# --- 1. CONFIG & CSS (ดีไซน์เดิมที่คุณเลือกไว้) ---
+# --- 1. CONFIG & STYLE (Official & Premium Tone) ---
 st.set_page_config(page_title="BHOON KHARN AI", layout="wide")
 st.markdown("""<style>
     @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;700&display=swap');
     :root { --bk-gold: #B59473; --bk-dark: #4A3F35; }
-    html, body, [class*="st-"] { font-family: 'Sarabun', sans-serif; line-height: 1.5; font-size: 0.9rem; }
+    html, body, [class*="st-"] { font-family: 'Sarabun', sans-serif; line-height: 1.6; font-size: 0.9rem; }
     .main-title { color: var(--bk-gold); text-align: center; font-weight: 700; font-size: 1.8rem; margin-bottom: 0; }
-    .story-text { text-align: center; color: var(--bk-dark); font-size: 0.8rem; margin-bottom: 25px; opacity: 0.8; padding: 0 12%; }
-    .section-header { color: var(--bk-gold); font-size: 0.95rem; font-weight: 700; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-top: 20px; }
-    .owner-content { border-left: 3px solid var(--bk-gold); padding-left: 15px; margin: 10px 0; white-space: pre-line; font-size: 0.85rem; background: #FCFAFA; padding: 10px; }
-    div.stButton > button { font-size: 0.75rem !important; border: 1px solid var(--bk-gold) !important; color: var(--bk-gold) !important; background: transparent; }
-    .comp-box { border: 1px solid #eee; border-radius: 8px; padding: 12px; margin-top: 10px; background: #FFF; }
-    .aff-btn { display: block; text-align: center; padding: 6px; margin: 4px 0; font-size: 0.7rem; border-radius: 4px; text-decoration: none; border: 1px solid #ddd; color: #555; font-weight: bold; }
+    .story-text { text-align: center; color: var(--bk-dark); font-size: 0.8rem; margin-bottom: 30px; opacity: 0.8; padding: 0 10%; }
+    .section-header { color: var(--bk-gold); font-size: 1rem; font-weight: 700; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-top: 25px; }
+    .owner-content { border-left: 3px solid var(--bk-gold); padding-left: 15px; margin: 15px 0; white-space: pre-line; font-size: 0.9rem; }
+    div.stButton > button { font-size: 0.75rem !important; border: 1px solid var(--bk-gold) !important; color: var(--bk-gold) !important; background: transparent; border-radius: 4px; }
+    div.stButton > button:hover { background: var(--bk-gold) !important; color: white !important; }
+    
+    /* เพิ่ม Style สำหรับกล่องเปรียบเทียบวัสดุ */
+    .comp-box { border: 1px solid #eee; border-radius: 8px; padding: 15px; margin-top: 15px; background: #FFF; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    .aff-btn { display: block; text-align: center; padding: 8px; margin: 5px 0; font-size: 0.75rem; border-radius: 4px; text-decoration: none; border: 1px solid #ddd; color: #555; font-weight: bold; }
+    .aff-btn:hover { border-color: var(--bk-gold); color: var(--bk-gold); }
 </style>""", unsafe_allow_html=True)
 
-# --- 2. ส่วนเสริมใหม่: เปรียบเทียบวัสดุ (เพิ่มต่อท้าย ไม่แก้ของเดิม) ---
-def render_comparison(material_name):
+# --- 2. ฟังก์ชันเสริมสำหรับการเปรียบเทียบวัสดุ (เพิ่มใหม่) ---
+def render_material_comparison(material_name):
     st.markdown(f"<div class='comp-box'>", unsafe_allow_html=True)
-    st.markdown(f"<p style='color:var(--bk-gold); font-weight:bold;'>📊 เปรียบเทียบวัสดุ: {material_name}</p>", unsafe_allow_html=True)
+    st.markdown(f"<p style='color:var(--bk-gold); font-weight:bold; margin-bottom:10px;'>📊 เปรียบเทียบวัสดุและคุณสมบัติ: {material_name}</p>", unsafe_allow_html=True)
     c_a, c_b = st.columns(2)
-    with c_a: st.markdown("<p style='font-size:0.75rem;'><b>🟢 มาตรฐาน:</b> คุ้มค่า ได้ มอก. เหมาะกับงานทั่วไป</p>", unsafe_allow_html=True)
-    with c_b: st.markdown("<p style='font-size:0.75rem;'><b>🏆 พรีเมียม:</b> ทนทานพิเศษ เกรดสูงสุดสำหรับงานวิศวกรรม</p>", unsafe_allow_html=True)
+    with c_a: st.markdown("<p style='font-size:0.8rem;'><b>🟢 เกรดมาตรฐาน:</b> เน้นความคุ้มค่า ได้มาตรฐาน มอก. เหมาะสำหรับงานทั่วไป</p>", unsafe_allow_html=True)
+    with c_b: st.markdown("<p style='font-size:0.8rem;'><b>🏆 เกรดพรีเมียม:</b> มีสารเพิ่มประสิทธิภาพ ทนทานสูงกว่า อายุการใช้งานยาวนาน</p>", unsafe_allow_html=True)
     
+    st.markdown("<p style='font-size:0.75rem; margin-top:10px; color:#666;'>🛒 ตรวจสอบราคาสด (ร้านค้าทางการ):</p>", unsafe_allow_html=True)
     ac1, ac2, ac3 = st.columns(3)
-    # ลิงก์ไปยังร้านค้าหลัก
     with ac1: st.markdown(f"<a href='https://shopee.co.th/search?keyword={material_name}&is_official_shop=true' class='aff-btn' target='_blank'>Shopee Mall</a>", unsafe_allow_html=True)
     with ac2: st.markdown(f"<a href='https://www.thaiwatsadu.com/th/search?q={material_name}' class='aff-btn' target='_blank'>Thai Watsadu</a>", unsafe_allow_html=True)
     with ac3: st.markdown(f"<a href='https://www.homepro.co.th/search?q={material_name}' class='aff-btn' target='_blank'>HomePro</a>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
-# --- 3. การตั้งค่า AI (ใช้แบบเดิมที่คุณรันผ่าน 100%) ---
+# --- 3. ENGINE (แก้ไขชื่อโมเดลเพื่อแก้ Error 404) ---
 def init_ai_engine():
-    # ดึง API Key จาก Secrets
     api_key = st.secrets.get("GOOGLE_API_KEY") or next((st.secrets[k] for k in st.secrets if "API_KEY" in k.upper()), None)
     if not api_key: return None, "No API Key"
     try:
         genai.configure(api_key=api_key)
-        # ใช้ชื่อรุ่น gemini-1.5-flash แบบมาตรฐาน (ไม่ใส่ models/ นำหน้าเพื่อเลี่ยงบั๊ก v1beta)
+        # แก้ไข: ตัด models/ ออกเพื่อให้รองรับ v1beta ได้เสถียรขึ้น
         model = genai.GenerativeModel("gemini-1.5-flash")
+        model.generate_content("test", generation_config={"max_output_tokens": 1})
         return model, "Ready"
-    except Exception as e:
-        return None, f"Offline: {str(e)}"
+    except:
+        try:
+            # Fallback: ค้นหาตัวที่รองรับอัตโนมัติหากตัวหลักมีปัญหา
+            for m in genai.list_models():
+                if 'generateContent' in m.supported_generation_methods: return genai.GenerativeModel(m.name), "Ready"
+        except: pass
+        return None, "Offline"
 
-# ตรวจสอบสถานะการเชื่อมต่อ
-if "engine" not in st.session_state: 
-    st.session_state.engine, st.session_state.status = init_ai_engine()
-
-# เตรียมตัวแปรเก็บข้อมูล
+if "engine" not in st.session_state: st.session_state.engine, st.session_state.status = init_ai_engine()
 for s in ["chat", "rep", "qs"]: 
     if s not in st.session_state: st.session_state[s] = [] if s != "rep" else ""
 
-# --- 4. หน้าจอหลัก และแถบข้าง ---
+# --- 4. SIDEBAR ---
 with st.sidebar:
-    st.markdown("### BHOON KHARN")
+    st.markdown("### 🏗️ BHOON KHARN")
     st.caption(f"Status: {st.session_state.status}")
     st.divider()
-    st.text_input("Customer ID (Supabase)", placeholder="Coming Soon", disabled=True)
+    st.markdown("**Member Area (Coming Soon)**")
+    user_id = st.text_input("Customer ID", placeholder="กรอกเลขสมาชิกเพื่อดูประวัติ", disabled=True)
+    st.info("ระบบ Supabase History กำลังพัฒนา")
+    st.divider()
     mode = st.radio("Mode:", ["🏠 เจ้าของบ้าน", "📊 เทคนิค/วิศวกร"])
     if st.button("🗑️ ล้างประวัติ", use_container_width=True):
         st.session_state.chat, st.session_state.rep, st.session_state.qs = [], "", []; st.rerun()
 
+# --- 5. MAIN UI ---
 st.markdown("<div class='main-title'>BHOON KHARN AI</div>", unsafe_allow_html=True)
-st.markdown("<div class='story-text'>วิเคราะห์งานก่อสร้างด้วย AI วิศวกรรม คัดสรรวัสดุมาตรฐานจากร้านค้าทางการเพื่อความมั่นใจสูงสุด</div>", unsafe_allow_html=True)
+st.markdown("""<div class='story-text'>
+    ขับเคลื่อนด้วยวิศวกรรม AI ที่วิเคราะห์ข้อมูลจากมาตรฐานงานก่อสร้างระดับสากล 
+    ผสมผสานกับประสบการณ์จริงจากทีม BHOON KHARN เพื่อความแม่นยำและปลอดภัยสูงสุดในทุกตารางเมตร
+</div>""", unsafe_allow_html=True)
 
-# --- 5. ส่วนอัปโหลดและประมวลผล (โครงสร้างเดิม) ---
 c1, c2 = st.columns(2)
 with c1: 
     bp = st.file_uploader("📋 แปลน (PDF/JPG)", type=['jpg','jpeg','png','pdf'])
@@ -74,42 +85,57 @@ with c2:
     site = st.file_uploader("📸 หน้างาน", type=['jpg','jpeg','png'])
     if site: st.image(site)
 
-if st.button("🚀 เริ่มการวิเคราะห์อัจฉริยะ", use_container_width=True, type="primary"):
-    if not (bp or site): 
-        st.warning("กรุณาอัปโหลดรูปภาพ")
-    else:
-        with st.spinner("Analyzing..."):
-            try:
-                # Prompt เดิม เพิ่มเติมคือสั่งให้ AI ช่วยระบุชื่อวัสดุหลัก
-                prompt = f"วิเคราะห์ภาพโหมด {mode} หัวข้อ: [ANALYSIS], [RISK], [CHECKLIST], [STANDARD], [OWNER_NOTE] และระบุชื่อวัสดุหลักท้ายรายงานในรูปแบบ [MATERIAL:ชื่อวัสดุ]"
-                inps = [prompt]
-                if bp: 
-                    if bp.type == "application/pdf": inps.append({"mime_type":"application/pdf","data":bp.getvalue()})
-                    else: inps.append(Image.open(bp))
-                if site: inps.append(Image.open(site))
-                
-                # เรียกใช้ AI
-                res = st.session_state.engine.generate_content(inps)
-                st.session_state.rep = res.text
-            except Exception as e: 
-                st.error(f"เกิดข้อผิดพลาด: {str(e)}")
+# --- 6. LOGIC ---
+def run_analysis():
+    if not st.session_state.engine: return
+    with st.spinner("AI กำลังวิเคราะห์ข้อมูลระดับวิศวกรรม..."):
+        try:
+            # ปรับ Prompt เล็กน้อยเพื่อสกัดชื่อวัสดุ
+            prompt = f"วิเคราะห์ภาพฐานะ BHOON KHARN AI โหมด: {mode} หัวข้อ: [ANALYSIS], [RISK], [CHECKLIST], [STANDARD], [OWNER_NOTE] ระบุชื่อวัสดุหลัก 1 อย่างที่จำเป็นในรูปแบบ [MATERIAL:ชื่อวัสดุ] แนะนำ 3 คำถามขึ้นต้นด้วย 'ถามช่าง: ' แยกบรรทัด"
+            inps = [prompt]
+            if bp: 
+                if bp.type == "application/pdf": inps.append({"mime_type":"application/pdf","data":bp.getvalue()})
+                else: inps.append(Image.open(bp))
+            if site: inps.append(Image.open(site))
+            res = st.session_state.engine.generate_content(inps)
+            st.session_state.qs = [q.strip() for q in re.findall(r"ถามช่าง:\s*(.*)", res.text)[:3]]
+            st.session_state.rep = re.sub(r"ถามช่าง:.*", "", res.text, flags=re.DOTALL).strip()
+            st.session_state.chat = []
+        except Exception as e: st.error(str(e))
 
-# --- 6. แสดงผลการวิเคราะห์ ---
+def ask_more(query):
+    if st.session_state.engine:
+        res = st.session_state.engine.generate_content(f"BHOON KHARN AI: {query}")
+        st.session_state.chat.append({"role": "user", "content": query}); st.session_state.chat.append({"role": "assistant", "content": res.text})
+
+# --- 7. DISPLAY ---
+if st.button("🚀 เริ่มการวิเคราะห์อัจฉริยะ", use_container_width=True, type="primary"):
+    if bp or site: run_analysis()
+    else: st.warning("กรุณาอัปโหลดรูปภาพ")
+
 if st.session_state.rep:
     st.divider()
-    sections = [("🔍 วิเคราะห์", "[ANALYSIS]"), ("⚠️ ความเสี่ยง", "[RISK]"), ("📝 เทคนิคการตรวจ", "[CHECKLIST]"), ("🏗️ มาตรฐาน", "[STANDARD]"), ("🏠 แนะนำเจ้าของบ้าน", "[OWNER_NOTE]")]
+    sections = [("🔍 สรุปผลการวิเคราะห์", "[ANALYSIS]"), ("⏱️ จุดวิกฤต", "[RISK]"), ("📝 เทคนิคการตรวจ", "[CHECKLIST]"), ("🏗️ มาตรฐานวิศวกรรม", "[STANDARD]"), ("🏠 เจ้าของบ้าน & อนาคต", "[OWNER_NOTE]")]
     for title, tag in sections:
         if tag in st.session_state.rep:
             content = st.session_state.rep.split(tag)[1].split("[")[0].strip()
             st.markdown(f"<div class='section-header'>{title}</div>", unsafe_allow_html=True)
-            if tag == "[OWNER_NOTE]": 
-                st.markdown(f"<div class='owner-content'>{content}</div>", unsafe_allow_html=True)
-            else: 
-                st.write(content)
+            if tag == "[OWNER_NOTE]": st.markdown(f"<div class='owner-content'>{content}</div>", unsafe_allow_html=True)
+            else: st.write(content)
     
-    # ดึงชื่อวัสดุมาเข้าฟังก์ชันเปรียบเทียบ (ส่วนเสริมใหม่)
+    # แสดงกล่องเปรียบเทียบวัสดุ (Plugin ใหม่)
     mat_match = re.search(r"\[MATERIAL:(.*)\]", st.session_state.rep)
-    material_to_compare = mat_match.group(1) if mat_match else "วัสดุก่อสร้าง"
-    render_comparison(material_to_compare)
+    if mat_match:
+        render_material_comparison(mat_match.group(1).strip())
 
-    st.markdown(f"<div style='text-align:center; margin-top:30px; border-top:1px solid #eee; padding-top:20px;'>🛠️ ปรึกษาฟรี: 088-777-6566 | Line: @bhoonkharn</div>", unsafe_allow_html=True)
+    if st.session_state.qs:
+        st.write(""); st.markdown("<p style='font-size:0.8rem; font-weight:bold; color:var(--bk-gold);'>💡 ถามต่อ:</p>", unsafe_allow_html=True)
+        qcols = st.columns(len(st.session_state.qs))
+        for i, qv in enumerate(st.session_state.qs):
+            if qcols[i].button(qv, key=f"bkq_{i}", use_container_width=True): ask_more(qv); st.rerun()
+
+    for m in st.session_state.chat:
+        with st.chat_message(m["role"]): st.markdown(m["content"])
+    if ui := st.chat_input("สอบถามเพิ่มเติม..."): ask_more(ui); st.rerun()
+
+    st.markdown(f"<div style='border-top:1px solid #eee; margin-top:40px; padding:20px 0; text-align:center;'><div style='color:var(--bk-gold); font-weight:700; font-size:1rem; margin-bottom:10px;'>🛠️ รับคำแนะนำฟรีจากทีม BHOON KHARN</div><div style='font-size:0.9rem;'>📞 <a href='tel:0887776566' style='color:var(--bk-gold);'>088-777-6566</a> | 💬 Line: <a href='https://line.me/ti/p/~bhoonkharn' style='color:var(--bk-gold);'>bhoonkharn</a></div></div>", unsafe_allow_html=True)
