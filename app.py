@@ -21,14 +21,12 @@ st.markdown("""
     
     .section-header { color: var(--bk-gold); font-size: 1.2rem; font-weight: 700; border-bottom: 1px solid rgba(181, 148, 115, 0.3); padding-bottom: 8px; margin-top: 30px; margin-bottom: 15px; }
     
-    /* Perfect Line Breaks Style */
     .content-list { line-height: 2; color: #E0E0E0; margin-bottom: 20px; list-style-type: none; padding-left: 0; }
     .content-list li { margin-bottom: 10px; padding-left: 25px; position: relative; }
     .content-list li::before { content: "•"; color: var(--bk-gold); position: absolute; left: 0; font-weight: bold; }
     
     .next-task-box { background: rgba(181, 148, 115, 0.08); border: 1px dashed var(--bk-gold); border-radius: 12px; padding: 20px; margin: 15px 0; color: #E0E0E0; line-height: 1.8; }
 
-    /* Visual Table XL (150px) */
     .mat-table-header { background: var(--bk-brown); color: var(--bk-gold); font-weight: 700; padding: 15px; border-radius: 10px 10px 0 0; display: flex; align-items: center; }
     .mat-thumb-xl { width: 150px; height: 150px; border-radius: 12px; object-fit: cover; border: 2px solid rgba(181, 148, 115, 0.4); background: white; margin: 10px 0; }
     
@@ -41,7 +39,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. ENGINE (The Original Template 3 Logic - High Stability) ---
+# --- 2. ENGINE (The Original Template 3 Logic) ---
 def init_ai_engine():
     raw_keys = os.getenv("GOOGLE_API_KEY", "")
     api_keys = [k.strip() for k in raw_keys.split(",") if k.strip()]
@@ -59,9 +57,8 @@ def init_ai_engine():
         
         def quota_safe_score(name):
             n = name.lower()
-            if "2.5" in n or "3" in n or "preview" in n or "robotics" in n: return 99
+            if "2.5" in n or "3" in n or "preview" in n: return 99
             if "1.5-flash" in n: return 1
-            if "1.5-pro" in n: return 2
             return 10
         
         all_m.sort(key=lambda x: quota_safe_score(x.name))
@@ -80,7 +77,7 @@ if "engine" not in st.session_state:
 
 if "json_data" not in st.session_state: st.session_state.json_data = {}
 
-# --- 3. UI FUNCTIONS (Updated Visuals & Trusted Library Logic) ---
+# --- 3. UI FUNCTIONS (Updated Visuals with Stable Redirects) ---
 def render_text_materials_summary(materials_data, next_task):
     st.markdown("<div class='section-header'>📋 แผนการเตรียมวัสดุ (สรุปเนื้อหา)</div>", unsafe_allow_html=True)
     st.markdown(f"<div class='next-task-box'><b>งานปัจจุบัน/ลำดับถัดไป:</b> {next_task}</div>", unsafe_allow_html=True)
@@ -93,24 +90,25 @@ def render_text_materials_summary(materials_data, next_task):
 def render_random_visual_showcase(materials_data):
     if not materials_data: return
     
-    # สุ่มเลือกมา 3-5 รายการ
     count = random.randint(3, 5)
     selected_mats = random.sample(materials_data, min(len(materials_data), count))
     
-    st.markdown("<div class='section-header'>🏗️ รายการแนะนำวัสดุ (Trusted Visuals 3-5 รายการ)</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-header'>🏗️ รายการแนะนำวัสดุ (Stable Visuals 3-5 รายการ)</div>", unsafe_allow_html=True)
     
-    # ทางออกที่ 1: คลังรูปภาพวัสดุที่คัดกรองแล้ว (เสถียรและตรงปก 100%)
+    # ระบบลิงก์ถาวร (Special:Redirect) แก้ปัญหารูปไม่ขึ้นและรูปปราสาท
+    base_url = "https://commons.wikimedia.org/w/index.php?title=Special:Redirect/file/"
+    suffix = "&width=300"
+    
     trusted_img_library = {
-        "ปูน": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Polymer_cement_mortar.jpg/320px-Polymer_cement_mortar.jpg",
-        "ทราย": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/23/Sand_pile.jpg/320px-Sand_pile.jpg",
-        "เหล็ก": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f6/Pile_of_Rebar.jpg/320px-Pile_of_Rebar.jpg",
-        "อิฐ": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Stacked_bricks.jpg/320px-Stacked_bricks.jpg",
-        "ท่อ": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b3/Bv-pvc-buizen.jpg/320px-Bv-pvc-buizen.jpg",
-        "สี": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/Paint_buckets_and_rollers.jpg/320px-Paint_buckets_and_rollers.jpg",
-        "กระเบื้อง": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/Wall_tiles.jpg/320px-Wall_tiles.jpg",
-        "สายไฟ": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/Electrical_wiring.jpg/320px-Electrical_wiring.jpg",
-        "ไม้": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/31/Timber_stack.jpg/320px-Timber_stack.jpg",
-        "คอนกรีต": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Concrete_mixer_truck_pouring.jpg/320px-Concrete_mixer_truck_pouring.jpg"
+        "ปูน": f"{base_url}Cement_bags_in_a_store_01.jpg{suffix}",
+        "ทราย": f"{base_url}Pile_of_sand.jpg{suffix}",
+        "เหล็ก": f"{base_url}Pile_of_Rebar.jpg{suffix}",
+        "อิฐ": f"{base_url}Bricks_001.jpg{suffix}",
+        "ท่อ": f"{base_url}PVC_pipes_01.jpg{suffix}",
+        "สี": f"{base_url}Paint_cans_on_a_shelf.jpg{suffix}",
+        "กระเบื้อง": f"{base_url}Ceramic_tiles_01.jpg{suffix}",
+        "สายไฟ": f"{base_url}Electrical_wiring.jpg{suffix}",
+        "ไม้": f"{base_url}Lumber_stack_01.jpg{suffix}"
     }
 
     st.markdown("""
@@ -128,13 +126,12 @@ def render_random_visual_showcase(materials_data):
         price = item.get("price", "฿0 - ฿0")
         keyword = item.get("img_keyword", "วัสดุ").lower()
         
-        # ค้นหาคีย์ที่ตรงกัน และดึงลิงก์รูปภาพโดยตรง
         found_key = next((k for k in trusted_img_library if k in keyword or k in name.lower()), "วัสดุ")
-        # ใช้รูปภาพหน้างานก่อสร้างเป็นค่าเริ่มต้นถ้าหาคีย์ไม่เจอ
-        img_url = trusted_img_library.get(found_key, "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Construction_site_in_Zhenjiang.jpg/320px-Construction_site_in_Zhenjiang.jpg")
+        # ใช้รูปภาพไซต์งานมาตรฐานกรณีไม่เจอคีย์
+        img_url = trusted_img_library.get(found_key, f"{base_url}Construction_site_in_Zhenjiang.jpg{suffix}")
         
         cols = st.columns([0.4, 1.6, 3, 1.5, 1.2])
-        with cols[0]: st.checkbox("", key=f"mat_trusted_{i}")
+        with cols[0]: st.checkbox("", key=f"mat_stable_{i}")
         with cols[1]: st.markdown(f"<img src='{img_url}' class='mat-thumb-xl'>", unsafe_allow_html=True)
         with cols[2]: st.markdown(f"<div style='margin-top:45px; font-weight:700; font-size:1.15rem;'>{name}</div><div style='color:#A09080; font-size:0.9rem;'>รุ่นที่แนะนำตามสเปกหน้างาน</div>", unsafe_allow_html=True)
         with cols[3]: st.markdown(f"<div style='margin-top:55px; color:#FFD700; font-weight:700; font-size:1.15rem; text-align:center;'>{price}</div>", unsafe_allow_html=True)
@@ -150,7 +147,7 @@ with st.sidebar:
         st.rerun()
 
 st.markdown("<div class='main-title'>BHOON KHARN AI</div>", unsafe_allow_html=True)
-st.markdown("<div class='story-text'>วิเคราะห์หน้างานก่อสร้างและวางแผนล่วงหน้าด้วย AI Vision อัจฉริยะ</div>", unsafe_allow_html=True)
+st.markdown("<div class='story-text'>วิเคราะห์หน้างานก่อสร้างด้วย AI Vision (Stable Redirect Edition)</div>", unsafe_allow_html=True)
 
 c1, c2 = st.columns(2)
 with c1:
@@ -162,23 +159,23 @@ with c2:
 
 def run_analysis():
     if not st.session_state.engine: return
-    with st.spinner("AI กำลังวิเคราะห์และจัดเตรียมข้อมูล..."):
+    with st.spinner("AI กำลังจัดเตรียมข้อมูล..."):
         try:
             prompt = f"""ในฐานะ BHOON KHARN AI โหมด {mode} ให้วิเคราะห์ภาพและตอบเป็น JSON เท่านั้น:
             {{
-                "analysis": ["สรุปข้อ 1", "สรุปข้อ 2"],
+                "analysis": ["ข้อ 1", "ข้อ 2"],
                 "risk": ["จุดเสี่ยง 1", "จุดเสี่ยง 2"],
                 "checklist": ["เทคนิคตรวจ 1", "เทคนิคตรวจ 2"],
                 "standard": ["มาตรฐาน 1", "มาตรฐาน 2"],
                 "next_task": "งานที่ต้องทำต่อทันที",
                 "future_materials": [
-                    {{"name": "ระบุรุ่น/ยี่ห้อวัสดุ 1", "price": "฿-฿", "img_keyword": "ปูน"}},
-                    {{"name": "ระบุรุ่น/ยี่ห้อวัสดุ 2", "price": "฿-฿", "img_keyword": "เหล็ก"}},
-                    {{"name": "ระบุรุ่น/ยี่ห้อวัสดุ 3", "price": "฿-฿", "img_keyword": "ท่อ"}}
+                    {{"name": "รุ่นวัสดุ 1", "price": "฿-฿", "img_keyword": "ปูน"}},
+                    {{"name": "รุ่นวัสดุ 2", "price": "฿-฿", "img_keyword": "เหล็ก"}},
+                    {{"name": "รุ่นวัสดุ 3", "price": "฿-฿", "img_keyword": "ท่อ"}}
                 ],
                 "owner_note": ["คำแนะนำ 1", "คำแนะนำ 2"]
             }}
-            ห้ามตอบนอกเหนือจาก JSON และข้อมูลใน [] ต้องแยกเป็นข้อๆ เสมอ"""
+            ห้ามระบุยี่ห้อสินค้า ตอบเป็น JSON เท่านั้น"""
             
             img_inp = Image.open(site) if site else Image.open(bp)
             res = st.session_state.engine.generate_content(
@@ -190,16 +187,16 @@ def run_analysis():
 
 if st.button("🚀 เริ่มการวิเคราะห์อัจฉริยะ", use_container_width=True, type="primary"):
     if bp or site: run_analysis()
-    else: st.warning("กรุณาอัปโหลดรูปภาพหน้างาน")
+    else: st.warning("กรุณาอัปโหลดรูปภาพ")
 
 # --- 5. DISPLAY ---
 if st.session_state.json_data:
     d = st.session_state.json_data
     st.divider()
     
-    def show_list_section(title, key):
+    def show_sec(title, key):
         if key in d:
-            st.markdown(f"<div class='section-header'>{title}</div>", unsafe_allow_html=True)
+            st.markdown(f<div class='section-header'>{title}</div>, unsafe_allow_html=True)
             items = d[key]
             if isinstance(items, list):
                 list_html = "<ul class='content-list'>" + "".join([f"<li>{i}</li>" for i in items]) + "</ul>"
@@ -207,16 +204,13 @@ if st.session_state.json_data:
             else:
                 st.markdown(f"<div style='margin-bottom:20px;'>{items}</div>", unsafe_allow_html=True)
 
-    show_list_section("🔍 วิเคราะห์หน้างาน", "analysis")
-    show_list_section("⚠️ จุดวิกฤตที่ต้องระวัง", "risk")
-    show_list_section("📝 เทคนิคการตรวจงานแบบละเอียด", "checklist")
-    show_list_section("🏗️ มาตรฐานวิศวกรรมที่เกี่ยวข้อง", "standard")
+    show_sec("🔍 วิเคราะห์หน้างาน", "analysis")
+    show_sec("⚠️ จุดวิกฤตที่ต้องระวัง", "risk")
+    show_sec("📝 เทคนิคการตรวจงานแบบละเอียด", "checklist")
+    show_sec("🏗️ มาตรฐานวิศวกรรมที่เกี่ยวข้อง", "standard")
 
     if "future_materials" in d:
-        # ส่วนสรุปข้อความ (Text-Based Summary)
         render_text_materials_summary(d["future_materials"], d.get("next_task", "งานลำดับถัดไป"))
-        
-        # ส่วนสุ่มโชว์ภาพพร้อมลิงก์ (Random Visual Showcase)
         render_random_visual_showcase(d["future_materials"])
 
     if "owner_note" in d:
