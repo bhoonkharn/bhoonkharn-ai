@@ -82,7 +82,6 @@ if "json_data" not in st.session_state: st.session_state.json_data = {}
 
 # --- 3. UI FUNCTIONS (Updated Visuals & Random Showcase) ---
 def render_text_materials_summary(materials_data, next_task):
-    """ฟังก์ชันเพิ่มส่วนสรุปแผนการเตรียมวัสดุแบบข้อความ"""
     st.markdown("<div class='section-header'>📋 แผนการเตรียมวัสดุ (สรุปเนื้อหา)</div>", unsafe_allow_html=True)
     st.markdown(f"<div class='next-task-box'><b>งานปัจจุบัน/ลำดับถัดไป:</b> {next_task}</div>", unsafe_allow_html=True)
     
@@ -92,7 +91,6 @@ def render_text_materials_summary(materials_data, next_task):
         st.markdown(f"<ul class='content-list'>{mat_list_text}</ul>", unsafe_allow_html=True)
 
 def render_random_visual_showcase(materials_data):
-    """ฟังก์ชันแสดงรายการแนะนำวัสดุแบบสุ่ม 3-5 รายการ พร้อมรูปใหญ่ 150px"""
     if not materials_data: return
     
     # สุ่มเลือกมา 3-5 รายการ
@@ -101,9 +99,9 @@ def render_random_visual_showcase(materials_data):
     
     st.markdown("<div class='section-header'>🏗️ รายการแนะนำวัสดุ (สุ่มตัวอย่าง 3-5 รายการ)</div>", unsafe_allow_html=True)
     
-    # ฐานข้อมูลรูปภาพสัญลักษณ์หน้างานที่เป็นกลาง (Proposed Contextual Visuals)
+    # ฐานข้อมูลรูปภาพใหม่ (แก้ไขให้ตรงปก 100% ไม่มีปราสาท)
     context_img = {
-        "ปูน": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=500",
+        "ปูน": "https://images.unsplash.com/photo-1517646287270-a5a9ca602e5c?w=500",
         "ทราย": "https://images.unsplash.com/photo-1534067783941-51c9c23ecefd?w=500",
         "เหล็ก": "https://images.unsplash.com/photo-1516135043105-08678853177f?w=500",
         "อิฐ": "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=500",
@@ -111,7 +109,8 @@ def render_random_visual_showcase(materials_data):
         "สี": "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500",
         "กระเบื้อง": "https://images.unsplash.com/photo-1502005229762-cf1b2da7c5d6?w=500",
         "สายไฟ": "https://images.unsplash.com/photo-1558444479-c8f01052877a?w=500",
-        "ไม้": "https://images.unsplash.com/photo-1533090161767-e6ffed986c88?w=500"
+        "ไม้": "https://images.unsplash.com/photo-1533090161767-e6ffed986c88?w=500",
+        "คอนกรีต": "https://images.unsplash.com/photo-1517646287270-a5a9ca602e5c?w=500"
     }
 
     st.markdown("""
@@ -130,6 +129,7 @@ def render_random_visual_showcase(materials_data):
         keyword = item.get("img_keyword", "วัสดุ").lower()
         
         found_key = next((k for k in context_img if k in keyword or k in name.lower()), "วัสดุ")
+        # ใช้รูปภาพทั่วไปหน้างานก่อสร้างเป็นค่าเริ่มต้นถ้าหาคีย์ไม่เจอ
         img_url = context_img.get(found_key, "https://images.unsplash.com/photo-1541888946425-d81bb19480c5?w=500")
         
         cols = st.columns([0.4, 1.6, 3, 1.5, 1.2])
@@ -211,12 +211,8 @@ if st.session_state.json_data:
     show_list_section("📝 เทคนิคการตรวจงานแบบละเอียด", "checklist")
     show_list_section("🏗️ มาตรฐานวิศวกรรมที่เกี่ยวข้อง", "standard")
 
-    # แก้ไขหัวข้อที่ 3 & 4: แสดงแผนสรุปแบบข้อความ และสุ่มรายการสินค้าพร้อมรูปภาพ
     if "future_materials" in d:
-        # ส่วนสรุปข้อความ (Requirement 3)
         render_text_materials_summary(d["future_materials"], d.get("next_task", "งานลำดับถัดไป"))
-        
-        # ส่วนสุ่มโชว์ภาพ (Requirement 4)
         render_random_visual_showcase(d["future_materials"])
 
     if "owner_note" in d:
