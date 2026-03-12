@@ -20,14 +20,12 @@ st.markdown("""
     
     .section-header { color: var(--bk-gold); font-size: 1.2rem; font-weight: 700; border-bottom: 1px solid rgba(181, 148, 115, 0.3); padding-bottom: 8px; margin-top: 30px; margin-bottom: 15px; }
     
-    /* แยกข้อให้อ่านง่ายสไตล์ List */
     .content-list { line-height: 2; color: #E0E0E0; margin-bottom: 20px; list-style-type: none; padding-left: 0; }
     .content-list li { margin-bottom: 10px; padding-left: 25px; position: relative; }
     .content-list li::before { content: "•"; color: var(--bk-gold); position: absolute; left: 0; font-weight: bold; }
     
     .next-task-box { background: rgba(181, 148, 115, 0.08); border: 1px dashed var(--bk-gold); border-radius: 12px; padding: 20px; margin: 15px 0; color: #E0E0E0; line-height: 1.8; }
 
-    /* Visual Table XL (150px) */
     .mat-table-header { background: var(--bk-brown); color: var(--bk-gold); font-weight: 700; padding: 15px; border-radius: 10px 10px 0 0; display: flex; align-items: center; }
     .mat-thumb-xl { width: 150px; height: 150px; border-radius: 12px; object-fit: cover; border: 2px solid rgba(181, 148, 115, 0.4); background: #2A2420; margin: 10px 0; }
     
@@ -38,7 +36,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. ENGINE (คงเดิมตามต้นฉบับที่ส่งมา) ---
+# --- 2. ENGINE (Hard-Lock 1.5-Flash: แก้ปัญหา Error 429) ---
 def init_ai_engine():
     raw_keys = os.getenv("GOOGLE_API_KEY", "")
     api_keys = [k.strip() for k in raw_keys.split(",") if k.strip()]
@@ -52,25 +50,13 @@ def init_ai_engine():
     selected_key = random.choice(api_keys)
     try:
         genai.configure(api_key=selected_key)
-        all_m = [m for m in genai.list_models() if 'generateContent' in m.supported_generation_methods and 'gemini' in m.name.lower()]
-        
-        def m_rank(n):
-            n = n.lower()
-            if "2.5" in n or "3" in n or "lite" in n: return 99
-            if "1.5-flash" in n: return 1
-            return 10
-            
-        all_m.sort(key=lambda x: m_rank(x.name))
-
-        for m_info in all_m:
-            if m_rank(m_info.name) < 90:
-                try:
-                    model = genai.GenerativeModel(m_info.name)
-                    model.generate_content("test", generation_config={"max_output_tokens": 1})
-                    return model, "Online"
-                except: continue
+        # ล็อกเป้าไปที่ gemini-1.5-flash เพื่อเลี่ยงโควตาเต็มของรุ่น 2.5
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        # ทดสอบการเชื่อมต่อ
+        model.generate_content("test", generation_config={"max_output_tokens": 1})
+        return model, "Online"
+    except Exception:
         return None, "Offline"
-    except Exception: return None, "Offline"
 
 if "engine" not in st.session_state:
     st.session_state.engine, st.session_state.status = init_ai_engine()
@@ -82,7 +68,7 @@ def render_shopping_list_v4(materials_data):
     if not materials_data: return
     st.markdown("<div class='section-header'>🗓️ รายการเตรียมวัสดุ (Visual Shopping List V4)</div>", unsafe_allow_html=True)
     
-    # ระบบลิงก์ถาวร Wikipedia Redirect (แก้ปัญหารูปปราสาทและรูปไม่ขึ้น)
+    # ระบบลิงก์ถาวร Wikipedia Redirect (ภาพชัด ตรงปก เสถียร)
     base_url = "https://commons.wikimedia.org/w/index.php?title=Special:Redirect/file/"
     suffix = "&width=300"
     
@@ -114,7 +100,6 @@ def render_shopping_list_v4(materials_data):
         keyword = item.get("img_keyword", "งานดิน").lower()
         
         found_key = next((k for k in trusted_img_library if k in keyword or k in name.lower()), "วัสดุ")
-        # ใช้รูปภาพไซต์งานมาตรฐานหากไม่เจอในคลัง
         img_url = trusted_img_library.get(found_key, f"{base_url}Construction_site_in_Zhenjiang.jpg{suffix}")
         
         cols = st.columns([0.4, 1.6, 3, 1.5, 1.2])
@@ -127,13 +112,16 @@ def render_shopping_list_v4(materials_data):
 # --- 4. MAIN UI ---
 with st.sidebar:
     st.markdown("### 🏗️ BHOON KHARN")
+    # แสดงชื่อโมเดลที่กำลังใช้งานเพื่อให้คุณมั่นใจ
+    model_name = st.session_state.engine.model_name if st.session_state.engine else "None"
     st.markdown(f"Status: **{st.session_state.status}**")
+    st.markdown(f"Model: `{model_name}`")
     if st.button("🗑️ ล้างข้อมูล", use_container_width=True):
         st.session_state.json_data = {}
         st.rerun()
 
 st.markdown("<div class='main-title'>BHOON KHARN AI</div>", unsafe_allow_html=True)
-st.markdown("<div class='story-text'>วิเคราะห์หน้างานก่อสร้างล่วงหน้าด้วย AI Vision อัจฉริยะ</div>", unsafe_allow_html=True)
+st.markdown("<div class='story-text'>วิเคราะห์หน้างานก่อสร้างล่วงหน้าด้วย AI Vision อัจฉริยะ (Stable Edition)</div>", unsafe_allow_html=True)
 
 c1, c2 = st.columns(2)
 with c1:
@@ -171,7 +159,7 @@ if st.button("🚀 เริ่มการวิเคราะห์", use_con
     if bp or site: run_analysis()
     else: st.warning("กรุณาอัปโหลดรูปภาพ")
 
-# --- 5. DISPLAY (Perfect Formatting) ---
+# --- 5. DISPLAY ---
 if st.session_state.json_data:
     d = st.session_state.json_data
     st.divider()
