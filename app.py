@@ -23,9 +23,9 @@ st.markdown("""
     .content-area { line-height: 1.8; white-space: pre-line; color: #E0E0E0; margin-bottom: 20px; }
     .next-task-box { background: rgba(181, 148, 115, 0.08); border: 1px dashed var(--bk-gold); border-radius: 12px; padding: 20px; margin: 15px 0; color: #E0E0E0; line-height: 1.8; white-space: pre-line; }
 
-    /* Shopping Table Design */
+    /* Visual Table Styling */
     .mat-table-header { background: var(--bk-brown); color: var(--bk-gold); font-weight: 700; padding: 12px; border-radius: 8px 8px 0 0; display: flex; align-items: center; }
-    .mat-thumb { width: 60px; height: 60px; border-radius: 6px; object-fit: cover; border: 1px solid rgba(181, 148, 115, 0.3); background: white; }
+    .mat-thumb { width: 55px; height: 55px; border-radius: 6px; object-fit: cover; border: 1px solid rgba(181, 148, 115, 0.3); background: white; }
     
     .btn-buy-link { color: var(--bk-gold) !important; text-decoration: none; border: 1px solid var(--bk-gold); padding: 4px 12px; border-radius: 4px; font-size: 0.8rem; }
     .btn-buy-link:hover { background: var(--bk-gold); color: white !important; }
@@ -36,7 +36,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. ENGINE (Strict Lockdown to 1.5-Flash Only) ---
+# --- 2. ENGINE (Force Lock 1.5-Flash to fix Offline issue) ---
 def init_ai_engine():
     raw_keys = os.getenv("GOOGLE_API_KEY", "")
     api_keys = [k.strip() for k in raw_keys.split(",") if k.strip()]
@@ -50,19 +50,15 @@ def init_ai_engine():
     selected_key = random.choice(api_keys)
     try:
         genai.configure(api_key=selected_key)
-        # ล็อคเป้าหมายไปที่ 1.5-Flash เท่านั้น และแบนรุ่น 2.5/3/Lite/Preview ทั้งหมด
-        all_m = [m for m in genai.list_models() 
-                 if 'gemini-1.5-flash' in m.name.lower() 
-                 and 'lite' not in m.name.lower()]
+        # ล็อคเฉพาะ 1.5 Flash เพื่อใช้โควตา 1,500 ครั้ง/วัน และกันรุ่นใหม่ที่เต็มแล้ว
+        all_m = [m for m in genai.list_models() if 'gemini-1.5-flash' in m.name.lower() and 'lite' not in m.name.lower()]
         
-        # กรณีหา 1.5 Flash ไม่เจอจริงๆ ค่อยเอาตัวอื่นที่เป็นตระกูล 1.5
-        if not all_m:
-            all_m = [m for m in genai.list_models() if 'gemini-1.5' in m.name.lower()]
+        if not all_m: # สำรองกรณีชื่อเรียกเปลี่ยนไป
+            all_m = [m for m in genai.list_models() if 'gemini' in m.name.lower() and 'flash' in m.name.lower()]
 
         for m_info in all_m:
             try:
                 model = genai.GenerativeModel(m_info.name)
-                # เช็คด่วนว่ารันได้ไหม
                 model.generate_content("test", generation_config={"max_output_tokens": 1})
                 return model, "Online"
             except: continue
@@ -79,17 +75,16 @@ def render_visual_shopping_list(materials):
     if not materials: return
     st.markdown("<div class='section-header'>🗓️ รายการเตรียมวัสดุสำหรับงานลำดับถัดไป (Visual Shopping List)</div>", unsafe_allow_html=True)
     
+    # ฐานข้อมูลรูปภาพที่ตรงปกงานก่อสร้าง
     img_db = {
         "ปูน": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=200",
         "ทราย": "https://images.unsplash.com/photo-1534067783941-51c9c23ecefd?w=200",
         "เหล็ก": "https://images.unsplash.com/photo-1516135043105-08678853177f?w=200",
         "อิฐ": "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=200",
-        "หิน": "https://images.unsplash.com/photo-1551821419-ef0136751b46?w=200",
         "ท่อ": "https://images.unsplash.com/photo-1614292244587-291771960207?w=200",
         "สี": "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=200",
         "ไม้": "https://images.unsplash.com/photo-1533090161767-e6ffed986c88?w=200",
-        "สายไฟ": "https://images.unsplash.com/photo-1558444479-c8f01052877a?w=200",
-        "กระเบื้อง": "https://images.unsplash.com/photo-1502005229762-cf1b2da7c5d6?w=200"
+        "หิน": "https://images.unsplash.com/photo-1551821419-ef0136751b46?w=200"
     }
 
     st.markdown("""
@@ -103,14 +98,11 @@ def render_visual_shopping_list(materials):
     """, unsafe_allow_html=True)
 
     for i, mat in enumerate(materials):
-        # ทำความสะอาดชื่อเพื่อหาภาพ
         clean_name = re.sub(r'[^\u0E00-\u0E7Fa-zA-Z0-9]', '', mat)
         found_key = next((k for k in img_db if k in clean_name), "วัสดุ")
         img_url = img_db.get(found_key, "https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=200")
-        
-        # สุ่มช่วงราคาตลาด
-        base_p = random.randint(190, 880)
-        p_range = f"฿{base_p} - ฿{base_p + random.randint(30, 90)}"
+        base_p = random.randint(185, 920)
+        p_range = f"฿{base_p} - ฿{base_p + random.randint(25, 75)}"
         
         cols = st.columns([0.4, 0.8, 3, 1.5, 1.5])
         with cols[0]: st.checkbox("", key=f"mat_chk_{i}")
@@ -141,20 +133,20 @@ with c2:
 
 def run_analysis():
     if not st.session_state.engine: return
-    with st.spinner("AI กำลังวิเคราะห์หน้างานและจัดทำ Visual List..."):
+    with st.spinner("AI กำลังวิเคราะห์และจัดทำรายการเตรียมวัสดุ..."):
         try:
-            # ใช้ JSON Mode เพื่อความเสถียรของข้อมูล
-            prompt = f"""ในฐานะ BHOON KHARN AI โหมด {mode} ให้วิเคราะห์ภาพและตอบเป็น JSON เท่านั้น:
+            # ใช้ JSON เพื่อความเสถียรสูงสุด (กัน Regex Leak)
+            prompt = f"""วิเคราะห์ภาพในโหมด {mode} และตอบเป็น JSON เท่านั้น:
             {{
-                "analysis": "สรุปหน้างานปัจจุบัน",
-                "risk": "จุดวิกฤตที่ต้องระวัง",
-                "checklist": "เทคนิคการตรวจงานแบบละเอียด",
-                "standard": "มาตรฐานวิศวกรรมที่เกี่ยวข้อง",
-                "next_task": "งานลำดับถัดไปที่จะเกิดขึ้นจริง",
+                "analysis": "สรุปหน้างาน (แยกข้อและเว้นบรรทัด)",
+                "risk": "จุดวิกฤต (เว้นบรรทัด)",
+                "checklist": "เทคนิคการตรวจ (แยกบรรทัด)",
+                "standard": "มาตรฐานวิศวกรรม (เว้นบรรทัด)",
+                "next_task": "งานที่ต้องทำต่อจากนี้ทันที",
                 "future_materials": ["วัสดุ 1", "วัสดุ 2", "วัสดุ 3", "วัสดุ 4"],
-                "owner_note": "แนะนำพิเศษสำหรับเจ้าของบ้าน"
+                "owner_note": "คำแนะนำเจ้าของบ้าน"
             }}
-            ห้ามตอบข้อความอื่นนอกจาก JSON และห้ามใส่ Placeholder"""
+            ห้ามตอบข้อความอื่นนอกจาก JSON"""
             
             img_inp = Image.open(site) if site else Image.open(bp)
             res = st.session_state.engine.generate_content(
@@ -162,7 +154,7 @@ def run_analysis():
                 generation_config={"response_mime_type": "application/json"}
             )
             st.session_state.json_data = json.loads(res.text)
-        except Exception as e: st.error(f"Error: {str(e)}")
+        except Exception as e: st.error(f"ระบบขัดข้อง: {str(e)}")
 
 if st.button("🚀 เริ่มการวิเคราะห์อัจฉริยะ", use_container_width=True, type="primary"):
     if bp or site: run_analysis()
@@ -173,30 +165,26 @@ if st.session_state.json_data:
     d = st.session_state.json_data
     st.divider()
     
-    # Render sections with pre-line for formatting
-    def show_sec(title, key):
+    def show(title, key):
         if key in d:
             st.markdown(f"<div class='section-header'>{title}</div>", unsafe_allow_html=True)
             st.markdown(f"<div class='content-area'>{d[key]}</div>", unsafe_allow_html=True)
 
-    show_sec("🔍 วิเคราะห์หน้างาน", "analysis")
-    show_sec("⚠️ จุดวิกฤต", "risk")
-    show_sec("📝 เทคนิคการตรวจ", "checklist")
-    show_sec("🏗️ มาตรฐานวิศวกรรม", "standard")
+    show("🔍 วิเคราะห์หน้างาน", "analysis")
+    show("⚠️ จุดวิกฤต", "risk")
+    show("📝 เทคนิคการตรวจ", "checklist")
+    show("🏗️ มาตรฐานวิศวกรรม", "standard")
 
-    # งานลำดับถัดไป
     if "next_task" in d:
         st.markdown("<div class='section-header'>🏗️ งานลำดับถัดไปที่ต้องเตรียมตัว</div>", unsafe_allow_html=True)
         st.markdown(f"<div class='next-task-box'>{d['next_task']}</div>", unsafe_allow_html=True)
 
-    # ตารางเตรียมวัสดุ (Visual Shopping List)
+    # ตารางเตรียมวัสดุแบบมีรูป Thumbnail
     if "future_materials" in d:
         render_visual_shopping_list(d["future_materials"])
 
-    # แนะนำเจ้าของบ้าน
     if "owner_note" in d:
         st.markdown("<div class='section-header'>🏠 คำแนะนำพิเศษสำหรับเจ้าของบ้าน</div>", unsafe_allow_html=True)
         st.markdown(f"<div class='owner-content'>{d['owner_note']}</div>", unsafe_allow_html=True)
 
-    # ส่วนติดต่อทีมงาน
     st.markdown("""<div class='contact-box'><div style='color:var(--bk-gold); font-weight:700; font-size:1.1rem; margin-bottom:15px;'>🛠️ ปรึกษาหน้างานหรือเตรียมวัสดุฟรีกับทีม BHOON KHARN</div><a href='tel:0887776566' class='contact-btn'>📞 โทร: 088-777-6566</a><a href='https://line.me/ti/p/~bhoonkharn' class='contact-btn'>💬 Line: bhoonkharn</a></div>""", unsafe_allow_html=True)
