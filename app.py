@@ -7,7 +7,7 @@ import os
 import random
 from datetime import datetime
 
-# --- 1. CONFIG & STYLE (Premium BHOON KHARN V3-XL) ---
+# --- 1. CONFIG & STYLE (BHOON KHARN Premium V4 - Perfect Edition) ---
 st.set_page_config(page_title="BHOON KHARN AI", layout="wide")
 
 st.markdown("""
@@ -21,16 +21,15 @@ st.markdown("""
     
     .section-header { color: var(--bk-gold); font-size: 1.2rem; font-weight: 700; border-bottom: 1px solid rgba(181, 148, 115, 0.3); padding-bottom: 8px; margin-top: 30px; margin-bottom: 15px; }
     
-    /* Perfect Line Breaks Style */
     .content-list { line-height: 2; color: #E0E0E0; margin-bottom: 20px; list-style-type: none; padding-left: 0; }
     .content-list li { margin-bottom: 10px; padding-left: 25px; position: relative; }
     .content-list li::before { content: "•"; color: var(--bk-gold); position: absolute; left: 0; font-weight: bold; }
     
     .next-task-box { background: rgba(181, 148, 115, 0.08); border: 1px dashed var(--bk-gold); border-radius: 12px; padding: 20px; margin: 15px 0; color: #E0E0E0; line-height: 1.8; }
 
-    /* Visual Table XL (150px) */
+    /* Visual Table Fixed (150px Images) */
     .mat-table-header { background: var(--bk-brown); color: var(--bk-gold); font-weight: 700; padding: 15px; border-radius: 10px 10px 0 0; display: flex; align-items: center; }
-    .mat-thumb-xl { width: 150px; height: 150px; border-radius: 12px; object-fit: cover; border: 2px solid rgba(181, 148, 115, 0.4); background: white; margin: 10px 0; }
+    .mat-thumb-v4 { width: 150px; height: 150px; border-radius: 12px; object-fit: cover; border: 2px solid rgba(181, 148, 115, 0.4); background: white; margin: 10px 0; display: block; }
     
     .btn-check-link { color: var(--bk-gold) !important; text-decoration: none; border: 1px solid var(--bk-gold); padding: 8px 18px; border-radius: 8px; font-size: 0.9rem; font-weight: bold; }
     .btn-check-link:hover { background: var(--bk-gold); color: white !important; }
@@ -41,7 +40,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. ENGINE (The Original Template 3 Logic - High Stability) ---
+# --- 2. ENGINE (Stable Picker) ---
 def init_ai_engine():
     raw_keys = os.getenv("GOOGLE_API_KEY", "")
     api_keys = [k.strip() for k in raw_keys.split(",") if k.strip()]
@@ -55,24 +54,23 @@ def init_ai_engine():
     selected_key = random.choice(api_keys)
     try:
         genai.configure(api_key=selected_key)
-        # ดึงโมเดลทั้งหมดที่รองรับ Vision
-        all_m = [m for m in genai.list_models() if 'generateContent' in m.supported_generation_methods and 'gemini' in m.name.lower()]
+        all_m = [m for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
         
         def quota_safe_score(name):
             n = name.lower()
-            if "2.5" in n or "3" in n or "preview" in n or "robotics" in n: return 99
+            if "2.5" in n or "3" in n or "preview" in n or "lite" in n: return 99
             if "1.5-flash" in n: return 1
-            if "1.5-pro" in n: return 2
             return 10
         
         all_m.sort(key=lambda x: quota_safe_score(x.name))
 
         for m_info in all_m:
-            try:
-                model = genai.GenerativeModel(m_info.name)
-                model.generate_content("test", generation_config={"max_output_tokens": 1})
-                return model, "Online"
-            except: continue
+            if quota_safe_score(m_info.name) < 90:
+                try:
+                    model = genai.GenerativeModel(m_info.name)
+                    model.generate_content("test", generation_config={"max_output_tokens": 1})
+                    return model, "Online"
+                except: continue
         return None, "Offline"
     except Exception: return None, "Offline"
 
@@ -81,11 +79,12 @@ if "engine" not in st.session_state:
 
 if "json_data" not in st.session_state: st.session_state.json_data = {}
 
-# --- 3. UI FUNCTIONS (Visual XL Rendering) ---
+# --- 3. UI FUNCTIONS (Visual Shopping List V4) ---
 def render_visual_shopping_list(materials_data):
     if not materials_data: return
-    st.markdown("<div class='section-header'>🗓️ รายการเตรียมวัสดุสำหรับงานลำดับถัดไป (Visual List)</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-header'>🗓️ รายการเตรียมวัสดุสำหรับงานลำดับถัดไป (Shopping List V4)</div>", unsafe_allow_html=True)
     
+    # ฐานข้อมูลรูปภาพที่เจาะจงและเสถียร (Updated Links)
     img_db = {
         "ปูน": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=500",
         "ทราย": "https://images.unsplash.com/photo-1534067783941-51c9c23ecefd?w=500",
@@ -95,9 +94,12 @@ def render_visual_shopping_list(materials_data):
         "สี": "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500",
         "กระเบื้อง": "https://images.unsplash.com/photo-1502005229762-cf1b2da7c5d6?w=500",
         "สายไฟ": "https://images.unsplash.com/photo-1558444479-c8f01052877a?w=500",
-        "น้ำยา": "https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=500"
+        "น้ำยา": "https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=500",
+        "คอนกรีต": "https://images.unsplash.com/photo-1533090161767-e6ffed986c88?w=500",
+        "ไม้": "https://images.unsplash.com/photo-1533090161767-e6ffed986c88?w=500"
     }
 
+    # Header 5 คอลัมน์
     st.markdown("""
         <div class='mat-table-header'>
             <div style='width:40px;'></div>
@@ -113,13 +115,15 @@ def render_visual_shopping_list(materials_data):
         price = item.get("price", "฿0 - ฿0")
         keyword = item.get("img_keyword", "วัสดุ").lower()
         
+        # Smart Matching: ตรวจสอบทั้งคำสั่ง AI และชื่อสินค้า
         found_key = next((k for k in img_db if k in keyword or k in name.lower()), "วัสดุ")
         img_url = img_db.get(found_key, "https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=500")
         
+        # จัดคอลัมน์ใหม่ (5 คอลัมน์)
         cols = st.columns([0.4, 1.6, 3, 1.5, 1.2])
-        with cols[0]: st.checkbox("", key=f"mat_v3_chk_{i}")
-        with cols[1]: st.markdown(f"<img src='{img_url}' class='mat-thumb-xl'>", unsafe_allow_html=True)
-        with cols[2]: st.markdown(f"<div style='margin-top:45px; font-weight:700; font-size:1.15rem;'>{name}</div><div style='color:#A09080; font-size:0.9rem;'>รุ่นที่แนะนำตามมาตรฐานงานช่าง</div>", unsafe_allow_html=True)
+        with cols[0]: st.checkbox("", key=f"mat_v4_chk_{i}")
+        with cols[1]: st.markdown(f"<img src='{img_url}' class='mat-thumb-v4'>", unsafe_allow_html=True)
+        with cols[2]: st.markdown(f"<div style='margin-top:45px; font-weight:700; font-size:1.15rem;'>{name}</div><div style='color:#A09080; font-size:0.9rem;'>รุ่นแนะนำตามมาตรฐานงานก่อสร้าง</div>", unsafe_allow_html=True)
         with cols[3]: st.markdown(f"<div style='margin-top:55px; color:#FFD700; font-weight:700; font-size:1.15rem; text-align:center;'>{price}</div>", unsafe_allow_html=True)
         with cols[4]: st.markdown(f"<div style='margin-top:50px; text-align:right;'><a href='https://www.google.com/search?q={name}+ราคา' target='_blank' class='btn-check-link'>🌐 คลิก</a></div>", unsafe_allow_html=True)
 
@@ -145,24 +149,23 @@ with c2:
 
 def run_analysis():
     if not st.session_state.engine: return
-    with st.spinner("AI กำลังวิเคราะห์และจัดเตรียมข้อมูล..."):
+    with st.spinner("AI กำลังวิเคราะห์และแมปข้อมูลวัสดุ..."):
         try:
-            # ใช้ JSON List เพื่อบังคับการแยกบรรทัดให้อ่านง่าย
             prompt = f"""ในฐานะ BHOON KHARN AI โหมด {mode} ให้วิเคราะห์ภาพและตอบเป็น JSON เท่านั้น:
             {{
-                "analysis": ["สรุปข้อ 1", "สรุปข้อ 2"],
+                "analysis": ["สรุปข้อที่ 1", "สรุปข้อที่ 2"],
                 "risk": ["จุดเสี่ยง 1", "จุดเสี่ยง 2"],
                 "checklist": ["เทคนิคตรวจ 1", "เทคนิคตรวจ 2"],
                 "standard": ["มาตรฐาน 1", "มาตรฐาน 2"],
-                "next_task": "งานที่ต้องทำต่อทันที",
+                "next_task": "งานที่ต้องทำต่อทันที (ระบุงานจริง)",
                 "future_materials": [
-                    {{"name": "ระบุรุ่น/ยี่ห้อวัสดุ 1", "price": "฿-฿", "img_keyword": "ปูน"}},
-                    {{"name": "ระบุรุ่น/ยี่ห้อวัสดุ 2", "price": "฿-฿", "img_keyword": "เหล็ก"}},
-                    {{"name": "ระบุรุ่น/ยี่ห้อวัสดุ 3", "price": "฿-฿", "img_keyword": "ท่อ"}}
+                    {{"name": "ระบุรุ่นวัสดุ 1", "price": "฿-฿", "img_keyword": "ปูน"}},
+                    {{"name": "ระบุรุ่นวัสดุ 2", "price": "฿-฿", "img_keyword": "เหล็ก"}},
+                    {{"name": "ระบุรุ่นวัสดุ 3", "price": "฿-฿", "img_keyword": "ท่อ"}}
                 ],
                 "owner_note": ["คำแนะนำ 1", "คำแนะนำ 2"]
             }}
-            ห้ามตอบนอกเหนือจาก JSON และข้อมูลใน [] ต้องแยกเป็นข้อๆ เสมอ"""
+            ห้ามใช้ข้อมูลสุ่ม และ img_keyword ต้องเป็นคำสั้นๆ เช่น ปูน, เหล็ก, ท่อ, ทราย เท่านั้น"""
             
             img_inp = Image.open(site) if site else Image.open(bp)
             res = st.session_state.engine.generate_content(
@@ -181,7 +184,7 @@ if st.session_state.json_data:
     d = st.session_state.json_data
     st.divider()
     
-    def show_list_section(title, key):
+    def render_section(title, key):
         if key in d:
             st.markdown(f"<div class='section-header'>{title}</div>", unsafe_allow_html=True)
             items = d[key]
@@ -189,18 +192,18 @@ if st.session_state.json_data:
                 list_html = "<ul class='content-list'>" + "".join([f"<li>{i}</li>" for i in items]) + "</ul>"
                 st.markdown(list_html, unsafe_allow_html=True)
             else:
-                st.markdown(f"<div style='margin-bottom:20px;'>{items}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='line-height:1.8; margin-bottom:20px;'>{items}</div>", unsafe_allow_html=True)
 
-    show_list_section("🔍 วิเคราะห์หน้างาน", "analysis")
-    show_list_section("⚠️ จุดวิกฤตที่ต้องระวัง", "risk")
-    show_list_section("📝 เทคนิคการตรวจงานแบบละเอียด", "checklist")
-    show_list_section("🏗️ มาตรฐานวิศวกรรมที่เกี่ยวข้อง", "standard")
+    render_section("🔍 วิเคราะห์หน้างาน", "analysis")
+    render_section("⚠️ จุดวิกฤตที่ต้องระวัง", "risk")
+    render_section("📝 เทคนิคการตรวจงานแบบละเอียด", "checklist")
+    render_section("🏗️ มาตรฐานวิศวกรรมที่เกี่ยวข้อง", "standard")
 
     if "next_task" in d:
         st.markdown("<div class='section-header'>🏗️ งานลำดับถัดไปที่ต้องเตรียมตัว</div>", unsafe_allow_html=True)
         st.markdown(f"<div class='next-task-box'>{d['next_task']}</div>", unsafe_allow_html=True)
 
-    # ตารางเตรียมวัสดุแบบ XL (รูปใหญ่ + รุ่นสินค้า)
+    # ตารางเตรียมวัสดุ (Visual Fixed Version)
     if "future_materials" in d:
         render_visual_shopping_list(d["future_materials"])
 
