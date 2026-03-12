@@ -39,7 +39,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. ENGINE (The Original Template 3 Logic) ---
+# --- 2. ENGINE (The Original Template 3 Logic - High Stability) ---
 def init_ai_engine():
     raw_keys = os.getenv("GOOGLE_API_KEY", "")
     api_keys = [k.strip() for k in raw_keys.split(",") if k.strip()]
@@ -77,7 +77,7 @@ if "engine" not in st.session_state:
 
 if "json_data" not in st.session_state: st.session_state.json_data = {}
 
-# --- 3. UI FUNCTIONS (Updated Visuals with Stable Redirects) ---
+# --- 3. UI FUNCTIONS (Stable Redirects Logic) ---
 def render_text_materials_summary(materials_data, next_task):
     st.markdown("<div class='section-header'>📋 แผนการเตรียมวัสดุ (สรุปเนื้อหา)</div>", unsafe_allow_html=True)
     st.markdown(f"<div class='next-task-box'><b>งานปัจจุบัน/ลำดับถัดไป:</b> {next_task}</div>", unsafe_allow_html=True)
@@ -95,10 +95,10 @@ def render_random_visual_showcase(materials_data):
     
     st.markdown("<div class='section-header'>🏗️ รายการแนะนำวัสดุ (Stable Visuals 3-5 รายการ)</div>", unsafe_allow_html=True)
     
-    # ระบบลิงก์ถาวร (Special:Redirect) แก้ปัญหารูปไม่ขึ้นและรูปปราสาท
     base_url = "https://commons.wikimedia.org/w/index.php?title=Special:Redirect/file/"
     suffix = "&width=300"
     
+    # ชุดรูปภาพมาตรฐาน Wikipedia (ลบลิงก์ที่ไม่ได้ใช้ออกแล้ว)
     trusted_img_library = {
         "ปูน": f"{base_url}Cement_bags_in_a_store_01.jpg{suffix}",
         "ทราย": f"{base_url}Pile_of_sand.jpg{suffix}",
@@ -127,7 +127,6 @@ def render_random_visual_showcase(materials_data):
         keyword = item.get("img_keyword", "วัสดุ").lower()
         
         found_key = next((k for k in trusted_img_library if k in keyword or k in name.lower()), "วัสดุ")
-        # ใช้รูปภาพไซต์งานมาตรฐานกรณีไม่เจอคีย์
         img_url = trusted_img_library.get(found_key, f"{base_url}Construction_site_in_Zhenjiang.jpg{suffix}")
         
         cols = st.columns([0.4, 1.6, 3, 1.5, 1.2])
@@ -147,7 +146,7 @@ with st.sidebar:
         st.rerun()
 
 st.markdown("<div class='main-title'>BHOON KHARN AI</div>", unsafe_allow_html=True)
-st.markdown("<div class='story-text'>วิเคราะห์หน้างานก่อสร้างด้วย AI Vision (Stable Redirect Edition)</div>", unsafe_allow_html=True)
+st.markdown("<div class='story-text'>วิเคราะห์หน้างานก่อสร้างด้วย AI Vision (Fixed Syntax Edition)</div>", unsafe_allow_html=True)
 
 c1, c2 = st.columns(2)
 with c1:
@@ -159,21 +158,21 @@ with c2:
 
 def run_analysis():
     if not st.session_state.engine: return
-    with st.spinner("AI กำลังจัดเตรียมข้อมูล..."):
+    with st.spinner("AI กำลังวิเคราะห์ข้อมูล..."):
         try:
             prompt = f"""ในฐานะ BHOON KHARN AI โหมด {mode} ให้วิเคราะห์ภาพและตอบเป็น JSON เท่านั้น:
             {{
                 "analysis": ["ข้อ 1", "ข้อ 2"],
-                "risk": ["จุดเสี่ยง 1", "จุดเสี่ยง 2"],
-                "checklist": ["เทคนิคตรวจ 1", "เทคนิคตรวจ 2"],
+                "risk": ["เสี่ยง 1", "เสี่ยง 2"],
+                "checklist": ["ตรวจ 1", "ตรวจ 2"],
                 "standard": ["มาตรฐาน 1", "มาตรฐาน 2"],
-                "next_task": "งานที่ต้องทำต่อทันที",
+                "next_task": "งานถัดไปทันที",
                 "future_materials": [
                     {{"name": "รุ่นวัสดุ 1", "price": "฿-฿", "img_keyword": "ปูน"}},
                     {{"name": "รุ่นวัสดุ 2", "price": "฿-฿", "img_keyword": "เหล็ก"}},
                     {{"name": "รุ่นวัสดุ 3", "price": "฿-฿", "img_keyword": "ท่อ"}}
                 ],
-                "owner_note": ["คำแนะนำ 1", "คำแนะนำ 2"]
+                "owner_note": ["แนะนำ 1", "แนะนำ 2"]
             }}
             ห้ามระบุยี่ห้อสินค้า ตอบเป็น JSON เท่านั้น"""
             
@@ -183,20 +182,21 @@ def run_analysis():
                 generation_config={"response_mime_type": "application/json"}
             )
             st.session_state.json_data = json.loads(res.text)
-        except Exception as e: st.error(f"ระบบขัดข้อง: {str(e)}")
+        except Exception as e: st.error(f"Error: {e}")
 
 if st.button("🚀 เริ่มการวิเคราะห์อัจฉริยะ", use_container_width=True, type="primary"):
     if bp or site: run_analysis()
     else: st.warning("กรุณาอัปโหลดรูปภาพ")
 
-# --- 5. DISPLAY ---
+# --- 5. DISPLAY (Fixed Syntax Here) ---
 if st.session_state.json_data:
     d = st.session_state.json_data
     st.divider()
     
     def show_sec(title, key):
         if key in d:
-            st.markdown(f<div class='section-header'>{title}</div>, unsafe_allow_html=True)
+            # แก้ไขจุดที่ Syntax Error: เพิ่มเครื่องหมายคำพูดครอบ f-string
+            st.markdown(f"<div class='section-header'>{title}</div>", unsafe_allow_html=True)
             items = d[key]
             if isinstance(items, list):
                 list_html = "<ul class='content-list'>" + "".join([f"<li>{i}</li>" for i in items]) + "</ul>"
