@@ -80,7 +80,7 @@ if "engine" not in st.session_state:
 
 if "json_data" not in st.session_state: st.session_state.json_data = {}
 
-# --- 3. UI FUNCTIONS (Visual XL Rendering & Smart Image Logic) ---
+# --- 3. UI FUNCTIONS (Updated to Smart Web-Proxy Search) ---
 def render_text_materials_summary(materials_data, next_task):
     st.markdown("<div class='section-header'>📋 แผนการเตรียมวัสดุ (สรุปเนื้อหา)</div>", unsafe_allow_html=True)
     st.markdown(f"<div class='next-task-box'><b>งานปัจจุบัน/ลำดับถัดไป:</b> {next_task}</div>", unsafe_allow_html=True)
@@ -97,20 +97,13 @@ def render_random_visual_showcase(materials_data):
     count = random.randint(3, 5)
     selected_mats = random.sample(materials_data, min(len(materials_data), count))
     
-    st.markdown("<div class='section-header'>🏗️ รายการแนะนำวัสดุ (สุ่มตัวอย่าง 3-5 รายการ)</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-header'>🏗️ รายการแนะนำวัสดุ (Smart Search 3-5 รายการ)</div>", unsafe_allow_html=True)
     
-    # ระบบ Smart Mapping สำหรับรูปภาพ (แก้ปัญหาปราสาท/รูปไม่ขึ้น)
-    keywords_map = {
-        "ปูน": "cement,bag",
-        "ทราย": "sand,pile",
-        "เหล็ก": "steel,rebar",
-        "อิฐ": "bricks,wall",
-        "ท่อ": "pvc,pipe",
-        "สี": "paint,bucket",
-        "กระเบื้อง": "tiles,floor",
-        "สายไฟ": "electric,cable",
-        "ไม้": "lumber,wood",
-        "คอนกรีต": "concrete,mixer"
+    # ระบบ Keyword Mapping สำหรับ Smart Web-Proxy
+    mat_keywords = {
+        "ปูน": "cement", "ทราย": "sand", "เหล็ก": "rebar", "อิฐ": "bricks",
+        "ท่อ": "pipes", "สี": "paint", "กระเบื้อง": "tiles", "สายไฟ": "electric",
+        "ไม้": "wood", "หิน": "gravel"
     }
 
     st.markdown("""
@@ -128,11 +121,11 @@ def render_random_visual_showcase(materials_data):
         price = item.get("price", "฿0 - ฿0")
         keyword = item.get("img_keyword", "วัสดุ").lower()
         
-        # ค้นหาคำค้นที่ตรงที่สุดเพื่อดึงรูปจากฐานข้อมูลภาพก่อสร้าง
-        found_kw = next((keywords_map[k] for k in keywords_map if k in keyword or k in name.lower()), "construction,site")
+        # ค้นหาคีย์เวิร์ดที่ตรงที่สุดเพื่อทำ Smart Search
+        found_tag = next((mat_keywords[k] for k in mat_keywords if k in keyword or k in name.lower()), "construction")
         
-        # ใช้ระบบค้นหาภาพก่อสร้างแบบพรีเมียม (Option 2/3 Hybrid)
-        img_url = f"https://loremflickr.com/320/320/construction,{found_kw}/all"
+        # Option 3: Smart Web-Proxy Search (Featured)
+        img_url = f"https://source.unsplash.com/featured/300x300?construction,{found_tag}"
         
         cols = st.columns([0.4, 1.6, 3, 1.5, 1.2])
         with cols[0]: st.checkbox("", key=f"mat_rand_{i}")
@@ -141,7 +134,7 @@ def render_random_visual_showcase(materials_data):
         with cols[3]: st.markdown(f"<div style='margin-top:55px; color:#FFD700; font-weight:700; font-size:1.15rem; text-align:center;'>{price}</div>", unsafe_allow_html=True)
         with cols[4]: st.markdown(f"<div style='margin-top:50px; text-align:right;'><a href='https://www.google.com/search?q={name}+ราคา' target='_blank' class='btn-check-link'>🌐 คลิก</a></div>", unsafe_allow_html=True)
 
-# --- 4. MAIN UI ---
+# --- 4. MAIN UI (Everything else remains untouched) ---
 with st.sidebar:
     st.markdown("### 🏗️ BHOON KHARN")
     st.markdown(f"Status: **{st.session_state.status}**")
