@@ -21,12 +21,14 @@ st.markdown("""
     
     .section-header { color: var(--bk-gold); font-size: 1.2rem; font-weight: 700; border-bottom: 1px solid rgba(181, 148, 115, 0.3); padding-bottom: 8px; margin-top: 30px; margin-bottom: 15px; }
     
+    /* Perfect Line Breaks Style */
     .content-list { line-height: 2; color: #E0E0E0; margin-bottom: 20px; list-style-type: none; padding-left: 0; }
     .content-list li { margin-bottom: 10px; padding-left: 25px; position: relative; }
     .content-list li::before { content: "•"; color: var(--bk-gold); position: absolute; left: 0; font-weight: bold; }
     
     .next-task-box { background: rgba(181, 148, 115, 0.08); border: 1px dashed var(--bk-gold); border-radius: 12px; padding: 20px; margin: 15px 0; color: #E0E0E0; line-height: 1.8; }
 
+    /* Visual Table XL (150px) */
     .mat-table-header { background: var(--bk-brown); color: var(--bk-gold); font-weight: 700; padding: 15px; border-radius: 10px 10px 0 0; display: flex; align-items: center; }
     .mat-thumb-xl { width: 150px; height: 150px; border-radius: 12px; object-fit: cover; border: 2px solid rgba(181, 148, 115, 0.4); background: white; margin: 10px 0; }
     
@@ -39,7 +41,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. ENGINE (แม่แบบ 4.2 ดั้งเดิม - ล็อคโหมดประหยัดโควตา) ---
+# --- 2. ENGINE (The Original Template 3 Logic - High Stability) ---
 def init_ai_engine():
     raw_keys = os.getenv("GOOGLE_API_KEY", "")
     api_keys = [k.strip() for k in raw_keys.split(",") if k.strip()]
@@ -55,7 +57,6 @@ def init_ai_engine():
         genai.configure(api_key=selected_key)
         all_m = [m for m in genai.list_models() if 'generateContent' in m.supported_generation_methods and 'gemini' in m.name.lower()]
         
-        # ปรับการให้คะแนนเพื่อเลี่ยงรุ่น 2.5-lite (คะแนน 99 คือลำดับสุดท้าย)
         def quota_safe_score(name):
             n = name.lower()
             if "2.5" in n or "3" in n or "preview" in n or "robotics" in n: return 99
@@ -79,8 +80,9 @@ if "engine" not in st.session_state:
 
 if "json_data" not in st.session_state: st.session_state.json_data = {}
 
-# --- 3. UI FUNCTIONS (Stable Special Redirect Logic) ---
+# --- 3. UI FUNCTIONS (Updated Visuals with Stable Redirects) ---
 def render_text_materials_summary(materials_data, next_task):
+    """ฟังก์ชันเพิ่มส่วนสรุปแผนการเตรียมวัสดุแบบข้อความ"""
     st.markdown("<div class='section-header'>📋 แผนการเตรียมวัสดุ (สรุปเนื้อหา)</div>", unsafe_allow_html=True)
     st.markdown(f"<div class='next-task-box'><b>งานปัจจุบัน/ลำดับถัดไป:</b> {next_task}</div>", unsafe_allow_html=True)
     
@@ -90,14 +92,16 @@ def render_text_materials_summary(materials_data, next_task):
         st.markdown(f"<ul class='content-list'>{mat_list_text}</ul>", unsafe_allow_html=True)
 
 def render_random_visual_showcase(materials_data):
+    """ฟังก์ชันแสดงรายการแนะนำวัสดุแบบสุ่ม 3-5 รายการ พร้อมรูปใหญ่ 150px (Stable Redirect)"""
     if not materials_data: return
     
+    # สุ่มเลือกมา 3-5 รายการ
     count = random.randint(3, 5)
     selected_mats = random.sample(materials_data, min(len(materials_data), count))
     
-    st.markdown("<div class='section-header'>🏗️ รายการแนะนำวัสดุ (Stable Visuals 3-5 รายการ)</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-header'>🏗️ รายการแนะนำวัสดุ (สุ่มตัวอย่าง 3-5 รายการ)</div>", unsafe_allow_html=True)
     
-    # ใช้ระบบลิงก์ถาวร Wikipedia Redirect (แก้ไขให้รูปตรงปกและเสถียร)
+    # ระบบลิงก์ถาวร Wikipedia Redirect (แทนที่ Unsplash เดิมเพื่อความเสถียร)
     base_url = "https://commons.wikimedia.org/w/index.php?title=Special:Redirect/file/"
     suffix = "&width=300"
     
@@ -133,7 +137,7 @@ def render_random_visual_showcase(materials_data):
         img_url = trusted_img_library.get(found_key, f"{base_url}Construction_site_in_Zhenjiang.jpg{suffix}")
         
         cols = st.columns([0.4, 1.6, 3, 1.5, 1.2])
-        with cols[0]: st.checkbox("", key=f"mat_stable_{i}")
+        with cols[0]: st.checkbox("", key=f"mat_rand_{i}")
         with cols[1]: st.markdown(f"<img src='{img_url}' class='mat-thumb-xl'>", unsafe_allow_html=True)
         with cols[2]: st.markdown(f"<div style='margin-top:45px; font-weight:700; font-size:1.15rem;'>{name}</div><div style='color:#A09080; font-size:0.9rem;'>รุ่นที่แนะนำตามสเปกหน้างาน</div>", unsafe_allow_html=True)
         with cols[3]: st.markdown(f"<div style='margin-top:55px; color:#FFD700; font-weight:700; font-size:1.15rem; text-align:center;'>{price}</div>", unsafe_allow_html=True)
@@ -149,7 +153,7 @@ with st.sidebar:
         st.rerun()
 
 st.markdown("<div class='main-title'>BHOON KHARN AI</div>", unsafe_allow_html=True)
-st.markdown("<div class='story-text'>วิเคราะห์หน้างานก่อสร้างล่วงหน้าด้วย AI Vision อัจฉริยะ</div>", unsafe_allow_html=True)
+st.markdown("<div class='story-text'>วิเคราะห์หน้างานก่อสร้างและวางแผนล่วงหน้าด้วย AI Vision อัจฉริยะ</div>", unsafe_allow_html=True)
 
 c1, c2 = st.columns(2)
 with c1:
@@ -161,7 +165,7 @@ with c2:
 
 def run_analysis():
     if not st.session_state.engine: return
-    with st.spinner("AI กำลังวิเคราะห์ข้อมูล..."):
+    with st.spinner("AI กำลังวิเคราะห์และจัดเตรียมข้อมูล..."):
         try:
             prompt = f"""ในฐานะ BHOON KHARN AI โหมด {mode} ให้วิเคราะห์ภาพและตอบเป็น JSON เท่านั้น:
             {{
@@ -171,13 +175,13 @@ def run_analysis():
                 "standard": ["มาตรฐาน 1", "มาตรฐาน 2"],
                 "next_task": "งานที่ต้องทำต่อทันที",
                 "future_materials": [
-                    {{"name": "ระบุรุ่นวัสดุ 1", "price": "฿-฿", "img_keyword": "ปูน"}},
-                    {{"name": "ระบุรุ่นวัสดุ 2", "price": "฿-฿", "img_keyword": "เหล็ก"}},
-                    {{"name": "ระบุรุ่นวัสดุ 3", "price": "฿-฿", "img_keyword": "ท่อ"}}
+                    {{"name": "ระบุรุ่น/ยี่ห้อวัสดุ 1", "price": "฿-฿", "img_keyword": "ปูน"}},
+                    {{"name": "ระบุรุ่น/ยี่ห้อวัสดุ 2", "price": "฿-฿", "img_keyword": "เหล็ก"}},
+                    {{"name": "ระบุรุ่น/ยี่ห้อวัสดุ 3", "price": "฿-฿", "img_keyword": "ท่อ"}}
                 ],
                 "owner_note": ["คำแนะนำ 1", "คำแนะนำ 2"]
             }}
-            ห้ามระบุยี่ห้อสินค้า ตอบเป็น JSON เท่านั้น"""
+            ห้ามตอบนอกเหนือจาก JSON และข้อมูลใน [] ต้องแยกเป็นข้อๆ เสมอ"""
             
             img_inp = Image.open(site) if site else Image.open(bp)
             res = st.session_state.engine.generate_content(
@@ -189,16 +193,15 @@ def run_analysis():
 
 if st.button("🚀 เริ่มการวิเคราะห์อัจฉริยะ", use_container_width=True, type="primary"):
     if bp or site: run_analysis()
-    else: st.warning("กรุณาอัปโหลดรูปภาพ")
+    else: st.warning("กรุณาอัปโหลดรูปภาพหน้างาน")
 
-# --- 5. DISPLAY (Fixed Syntax Error) ---
+# --- 5. DISPLAY ---
 if st.session_state.json_data:
     d = st.session_state.json_data
     st.divider()
     
-    def show_sec(title, key):
+    def show_list_section(title, key):
         if key in d:
-            # แก้ไข Syntax Error: เติมเครื่องหมายคำพูดครอบ f-string เรียบร้อยแล้ว
             st.markdown(f"<div class='section-header'>{title}</div>", unsafe_allow_html=True)
             items = d[key]
             if isinstance(items, list):
@@ -207,13 +210,17 @@ if st.session_state.json_data:
             else:
                 st.markdown(f"<div style='margin-bottom:20px;'>{items}</div>", unsafe_allow_html=True)
 
-    show_sec("🔍 วิเคราะห์หน้างาน", "analysis")
-    show_sec("⚠️ จุดวิกฤตที่ต้องระวัง", "risk")
-    show_sec("📝 เทคนิคการตรวจงานแบบละเอียด", "checklist")
-    show_sec("🏗️ มาตรฐานวิศวกรรมที่เกี่ยวข้อง", "standard")
+    show_list_section("🔍 วิเคราะห์หน้างาน", "analysis")
+    show_list_section("⚠️ จุดวิกฤตที่ต้องระวัง", "risk")
+    show_list_section("📝 เทคนิคการตรวจงานแบบละเอียด", "checklist")
+    show_list_section("🏗️ มาตรฐานวิศวกรรมที่เกี่ยวข้อง", "standard")
 
+    # แก้ไขหัวข้อที่ 3 & 4: แสดงแผนสรุปแบบข้อความ และสุ่มรายการสินค้าพร้อมรูปภาพ
     if "future_materials" in d:
+        # ส่วนสรุปข้อความ (Requirement 3)
         render_text_materials_summary(d["future_materials"], d.get("next_task", "งานลำดับถัดไป"))
+        
+        # ส่วนสุ่มโชว์ภาพ (Requirement 4)
         render_random_visual_showcase(d["future_materials"])
 
     if "owner_note" in d:
