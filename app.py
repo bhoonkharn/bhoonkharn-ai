@@ -80,7 +80,7 @@ if "engine" not in st.session_state:
 
 if "json_data" not in st.session_state: st.session_state.json_data = {}
 
-# --- 3. UI FUNCTIONS (Updated to Smart Web-Proxy Search) ---
+# --- 3. UI FUNCTIONS (Updated Visuals & Trusted Library Logic) ---
 def render_text_materials_summary(materials_data, next_task):
     st.markdown("<div class='section-header'>📋 แผนการเตรียมวัสดุ (สรุปเนื้อหา)</div>", unsafe_allow_html=True)
     st.markdown(f"<div class='next-task-box'><b>งานปัจจุบัน/ลำดับถัดไป:</b> {next_task}</div>", unsafe_allow_html=True)
@@ -97,13 +97,20 @@ def render_random_visual_showcase(materials_data):
     count = random.randint(3, 5)
     selected_mats = random.sample(materials_data, min(len(materials_data), count))
     
-    st.markdown("<div class='section-header'>🏗️ รายการแนะนำวัสดุ (Smart Search 3-5 รายการ)</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-header'>🏗️ รายการแนะนำวัสดุ (Trusted Visuals 3-5 รายการ)</div>", unsafe_allow_html=True)
     
-    # ระบบ Keyword Mapping สำหรับ Smart Web-Proxy
-    mat_keywords = {
-        "ปูน": "cement", "ทราย": "sand", "เหล็ก": "rebar", "อิฐ": "bricks",
-        "ท่อ": "pipes", "สี": "paint", "กระเบื้อง": "tiles", "สายไฟ": "electric",
-        "ไม้": "wood", "หิน": "gravel"
+    # ทางออกที่ 1: คลังรูปภาพวัสดุที่คัดกรองแล้ว (เสถียรและตรงปก 100%)
+    trusted_img_library = {
+        "ปูน": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Polymer_cement_mortar.jpg/320px-Polymer_cement_mortar.jpg",
+        "ทราย": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/23/Sand_pile.jpg/320px-Sand_pile.jpg",
+        "เหล็ก": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f6/Pile_of_Rebar.jpg/320px-Pile_of_Rebar.jpg",
+        "อิฐ": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Stacked_bricks.jpg/320px-Stacked_bricks.jpg",
+        "ท่อ": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b3/Bv-pvc-buizen.jpg/320px-Bv-pvc-buizen.jpg",
+        "สี": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/Paint_buckets_and_rollers.jpg/320px-Paint_buckets_and_rollers.jpg",
+        "กระเบื้อง": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/Wall_tiles.jpg/320px-Wall_tiles.jpg",
+        "สายไฟ": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/Electrical_wiring.jpg/320px-Electrical_wiring.jpg",
+        "ไม้": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/31/Timber_stack.jpg/320px-Timber_stack.jpg",
+        "คอนกรีต": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Concrete_mixer_truck_pouring.jpg/320px-Concrete_mixer_truck_pouring.jpg"
     }
 
     st.markdown("""
@@ -121,20 +128,19 @@ def render_random_visual_showcase(materials_data):
         price = item.get("price", "฿0 - ฿0")
         keyword = item.get("img_keyword", "วัสดุ").lower()
         
-        # ค้นหาคีย์เวิร์ดที่ตรงที่สุดเพื่อทำ Smart Search
-        found_tag = next((mat_keywords[k] for k in mat_keywords if k in keyword or k in name.lower()), "construction")
-        
-        # Option 3: Smart Web-Proxy Search (Featured)
-        img_url = f"https://source.unsplash.com/featured/300x300?construction,{found_tag}"
+        # ค้นหาคีย์ที่ตรงกัน และดึงลิงก์รูปภาพโดยตรง
+        found_key = next((k for k in trusted_img_library if k in keyword or k in name.lower()), "วัสดุ")
+        # ใช้รูปภาพหน้างานก่อสร้างเป็นค่าเริ่มต้นถ้าหาคีย์ไม่เจอ
+        img_url = trusted_img_library.get(found_key, "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Construction_site_in_Zhenjiang.jpg/320px-Construction_site_in_Zhenjiang.jpg")
         
         cols = st.columns([0.4, 1.6, 3, 1.5, 1.2])
-        with cols[0]: st.checkbox("", key=f"mat_rand_{i}")
+        with cols[0]: st.checkbox("", key=f"mat_trusted_{i}")
         with cols[1]: st.markdown(f"<img src='{img_url}' class='mat-thumb-xl'>", unsafe_allow_html=True)
         with cols[2]: st.markdown(f"<div style='margin-top:45px; font-weight:700; font-size:1.15rem;'>{name}</div><div style='color:#A09080; font-size:0.9rem;'>รุ่นที่แนะนำตามสเปกหน้างาน</div>", unsafe_allow_html=True)
         with cols[3]: st.markdown(f"<div style='margin-top:55px; color:#FFD700; font-weight:700; font-size:1.15rem; text-align:center;'>{price}</div>", unsafe_allow_html=True)
         with cols[4]: st.markdown(f"<div style='margin-top:50px; text-align:right;'><a href='https://www.google.com/search?q={name}+ราคา' target='_blank' class='btn-check-link'>🌐 คลิก</a></div>", unsafe_allow_html=True)
 
-# --- 4. MAIN UI (Everything else remains untouched) ---
+# --- 4. MAIN UI ---
 with st.sidebar:
     st.markdown("### 🏗️ BHOON KHARN")
     st.markdown(f"Status: **{st.session_state.status}**")
@@ -207,7 +213,10 @@ if st.session_state.json_data:
     show_list_section("🏗️ มาตรฐานวิศวกรรมที่เกี่ยวข้อง", "standard")
 
     if "future_materials" in d:
+        # ส่วนสรุปข้อความ (Text-Based Summary)
         render_text_materials_summary(d["future_materials"], d.get("next_task", "งานลำดับถัดไป"))
+        
+        # ส่วนสุ่มโชว์ภาพพร้อมลิงก์ (Random Visual Showcase)
         render_random_visual_showcase(d["future_materials"])
 
     if "owner_note" in d:
