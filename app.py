@@ -55,7 +55,6 @@ def init_ai_engine():
     selected_key = random.choice(api_keys)
     try:
         genai.configure(api_key=selected_key)
-        # ดึงโมเดลทั้งหมดที่รองรับ Vision
         all_m = [m for m in genai.list_models() if 'generateContent' in m.supported_generation_methods and 'gemini' in m.name.lower()]
         
         def quota_safe_score(name):
@@ -81,12 +80,29 @@ if "engine" not in st.session_state:
 
 if "json_data" not in st.session_state: st.session_state.json_data = {}
 
-# --- 3. UI FUNCTIONS (Visual XL Rendering) ---
-def render_visual_shopping_list(materials_data):
-    if not materials_data: return
-    st.markdown("<div class='section-header'>🗓️ รายการเตรียมวัสดุสำหรับงานลำดับถัดไป (Visual List)</div>", unsafe_allow_html=True)
+# --- 3. UI FUNCTIONS (Updated Visuals & Random Showcase) ---
+def render_text_materials_summary(materials_data, next_task):
+    """ฟังก์ชันเพิ่มส่วนสรุปแผนการเตรียมวัสดุแบบข้อความ"""
+    st.markdown("<div class='section-header'>📋 แผนการเตรียมวัสดุ (สรุปเนื้อหา)</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='next-task-box'><b>งานปัจจุบัน/ลำดับถัดไป:</b> {next_task}</div>", unsafe_allow_html=True)
     
-    img_db = {
+    if materials_data:
+        st.markdown("<p style='color:var(--bk-gold); font-weight:bold;'>รายการวัสดุทั้งหมดที่ต้องเตรียม:</p>", unsafe_allow_html=True)
+        mat_list_text = "".join([f"<li>{m['name']} ({m.get('price', 'เช็คราคา')})</li>" for m in materials_data])
+        st.markdown(f"<ul class='content-list'>{mat_list_text}</ul>", unsafe_allow_html=True)
+
+def render_random_visual_showcase(materials_data):
+    """ฟังก์ชันแสดงรายการแนะนำวัสดุแบบสุ่ม 3-5 รายการ พร้อมรูปใหญ่ 150px"""
+    if not materials_data: return
+    
+    # สุ่มเลือกมา 3-5 รายการ
+    count = random.randint(3, 5)
+    selected_mats = random.sample(materials_data, min(len(materials_data), count))
+    
+    st.markdown("<div class='section-header'>🏗️ รายการแนะนำวัสดุ (สุ่มตัวอย่าง 3-5 รายการ)</div>", unsafe_allow_html=True)
+    
+    # ฐานข้อมูลรูปภาพสัญลักษณ์หน้างานที่เป็นกลาง (Proposed Contextual Visuals)
+    context_img = {
         "ปูน": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=500",
         "ทราย": "https://images.unsplash.com/photo-1534067783941-51c9c23ecefd?w=500",
         "เหล็ก": "https://images.unsplash.com/photo-1516135043105-08678853177f?w=500",
@@ -95,31 +111,31 @@ def render_visual_shopping_list(materials_data):
         "สี": "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500",
         "กระเบื้อง": "https://images.unsplash.com/photo-1502005229762-cf1b2da7c5d6?w=500",
         "สายไฟ": "https://images.unsplash.com/photo-1558444479-c8f01052877a?w=500",
-        "น้ำยา": "https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=500"
+        "ไม้": "https://images.unsplash.com/photo-1533090161767-e6ffed986c88?w=500"
     }
 
     st.markdown("""
         <div class='mat-table-header'>
             <div style='width:40px;'></div>
             <div style='width:160px; margin-left:10px;'>รูปภาพวัสดุ</div>
-            <div style='flex:3; padding-left:30px;'>ชื่อรุ่นและสเปกที่แนะนำ</div>
+            <div style='flex:3; padding-left:30px;'>ชื่อรุ่นและสเปกแนะนำ</div>
             <div style='flex:1.5; text-align:center;'>ราคากลางท้องถิ่น</div>
             <div style='flex:1.2; text-align:right;'>เช็คข้อมูล</div>
         </div>
     """, unsafe_allow_html=True)
 
-    for i, item in enumerate(materials_data):
+    for i, item in enumerate(selected_mats):
         name = item.get("name", "วัสดุก่อสร้าง")
         price = item.get("price", "฿0 - ฿0")
         keyword = item.get("img_keyword", "วัสดุ").lower()
         
-        found_key = next((k for k in img_db if k in keyword or k in name.lower()), "วัสดุ")
-        img_url = img_db.get(found_key, "https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=500")
+        found_key = next((k for k in context_img if k in keyword or k in name.lower()), "วัสดุ")
+        img_url = context_img.get(found_key, "https://images.unsplash.com/photo-1541888946425-d81bb19480c5?w=500")
         
         cols = st.columns([0.4, 1.6, 3, 1.5, 1.2])
-        with cols[0]: st.checkbox("", key=f"mat_v3_chk_{i}")
+        with cols[0]: st.checkbox("", key=f"mat_rand_{i}")
         with cols[1]: st.markdown(f"<img src='{img_url}' class='mat-thumb-xl'>", unsafe_allow_html=True)
-        with cols[2]: st.markdown(f"<div style='margin-top:45px; font-weight:700; font-size:1.15rem;'>{name}</div><div style='color:#A09080; font-size:0.9rem;'>รุ่นที่แนะนำตามมาตรฐานงานช่าง</div>", unsafe_allow_html=True)
+        with cols[2]: st.markdown(f"<div style='margin-top:45px; font-weight:700; font-size:1.15rem;'>{name}</div><div style='color:#A09080; font-size:0.9rem;'>รุ่นที่แนะนำตามสเปกหน้างาน</div>", unsafe_allow_html=True)
         with cols[3]: st.markdown(f"<div style='margin-top:55px; color:#FFD700; font-weight:700; font-size:1.15rem; text-align:center;'>{price}</div>", unsafe_allow_html=True)
         with cols[4]: st.markdown(f"<div style='margin-top:50px; text-align:right;'><a href='https://www.google.com/search?q={name}+ราคา' target='_blank' class='btn-check-link'>🌐 คลิก</a></div>", unsafe_allow_html=True)
 
@@ -147,7 +163,6 @@ def run_analysis():
     if not st.session_state.engine: return
     with st.spinner("AI กำลังวิเคราะห์และจัดเตรียมข้อมูล..."):
         try:
-            # ใช้ JSON List เพื่อบังคับการแยกบรรทัดให้อ่านง่าย
             prompt = f"""ในฐานะ BHOON KHARN AI โหมด {mode} ให้วิเคราะห์ภาพและตอบเป็น JSON เท่านั้น:
             {{
                 "analysis": ["สรุปข้อ 1", "สรุปข้อ 2"],
@@ -174,7 +189,7 @@ def run_analysis():
 
 if st.button("🚀 เริ่มการวิเคราะห์อัจฉริยะ", use_container_width=True, type="primary"):
     if bp or site: run_analysis()
-    else: st.warning("กรุณาอัปโหลดรูปภาพ")
+    else: st.warning("กรุณาอัปโหลดรูปภาพหน้างาน")
 
 # --- 5. DISPLAY ---
 if st.session_state.json_data:
@@ -196,13 +211,13 @@ if st.session_state.json_data:
     show_list_section("📝 เทคนิคการตรวจงานแบบละเอียด", "checklist")
     show_list_section("🏗️ มาตรฐานวิศวกรรมที่เกี่ยวข้อง", "standard")
 
-    if "next_task" in d:
-        st.markdown("<div class='section-header'>🏗️ งานลำดับถัดไปที่ต้องเตรียมตัว</div>", unsafe_allow_html=True)
-        st.markdown(f"<div class='next-task-box'>{d['next_task']}</div>", unsafe_allow_html=True)
-
-    # ตารางเตรียมวัสดุแบบ XL (รูปใหญ่ + รุ่นสินค้า)
+    # แก้ไขหัวข้อที่ 3 & 4: แสดงแผนสรุปแบบข้อความ และสุ่มรายการสินค้าพร้อมรูปภาพ
     if "future_materials" in d:
-        render_visual_shopping_list(d["future_materials"])
+        # ส่วนสรุปข้อความ (Requirement 3)
+        render_text_materials_summary(d["future_materials"], d.get("next_task", "งานลำดับถัดไป"))
+        
+        # ส่วนสุ่มโชว์ภาพ (Requirement 4)
+        render_random_visual_showcase(d["future_materials"])
 
     if "owner_note" in d:
         st.markdown("<div class='section-header'>🏠 คำแนะนำพิเศษสำหรับเจ้าของบ้าน</div>", unsafe_allow_html=True)
