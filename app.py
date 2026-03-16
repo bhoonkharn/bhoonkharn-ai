@@ -1,6 +1,9 @@
 import streamlit as st
 from PIL import Image
 import time
+import base64
+import json
+from streamlit_oauth import OAuth2Component
 
 # --- 1. CONFIG (ลบความเป็น Streamlit ออกทั้งหมด) ---
 st.set_page_config(
@@ -68,9 +71,59 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+# ==========================================================
+# 🛑 ระบบประตู Login (Gatekeeper) ด้วย Google 🛑
+# ==========================================================
+CLIENT_ID = "358673361686-q6nuqn6tqefffcrm9krtcv1u11rmvt8j.apps.googleusercontent.com"
+# ดึง Secret จาก Environment Variables (ในเครื่องคือไฟล์ secrets.toml)
+try:
+    CLIENT_SECRET = st.secrets["GOOGLE_CLIENT_SECRET"]
+except:
+    CLIENT_SECRET = "" # ดักไว้เผื่อไฟล์ secret หาย
+
+AUTHORIZE_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth"
+TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
+REVOKE_ENDPOINT = "https://oauth2.googleapis.com/revoke"
+
+oauth2 = OAuth2Component(CLIENT_ID, CLIENT_SECRET, AUTHORIZE_ENDPOINT, TOKEN_ENDPOINT, TOKEN_ENDPOINT, REVOKE_ENDPOINT)
+
+# เช็คว่าล็อกอินหรือยัง ถ้ายังให้โชว์แค่ปุ่ม
+if "auth" not in st.session_state:
+    st.markdown("<h2 style='text-align: center; color: #B59473; margin-top: 80px;'>🔒 PRIVATE ACCESS</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #888; margin-bottom: 30px;'>กรุณาเข้าสู่ระบบด้วย Google เพื่อใช้งาน BHOON KHARN AI</p>", unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col2:
+        result = oauth2.authorize_button(
+            name="Continue with Google",
+            icon="https://www.iconpacks.net/icons/2/free-google-icon-2039-thumb.png",
+            redirect_uri="http://localhost:8501", 
+            scope="openid email profile",
+            key="google_login",
+            extras_params={"prompt": "select_account"}
+        )
+    
+    if result:
+        st.session_state["auth"] = result["token"]
+        st.rerun()
+        
+    st.stop() # หยุดการรันโค้ดตรงนี้ (ซ่อนแอปหลักไว้)
+
+# ==========================================================
+# 🟢 ถอดรหัสชื่อผู้ใช้ (ถ้าหลุดมาตรงนี้ได้แปลว่าล็อกอินแล้ว) 🟢
+# ==========================================================
+if "user_info" not in st.session_state:
+    try:
+        token_data = st.session_state["auth"]["id_token"]
+        payload = token_data.split(".")[1]
+        payload += "=" * ((4 - len(payload) % 4) % 4)
+        decoded_payload = base64.urlsafe_b64decode(payload).decode('utf-8')
+        st.session_state["user_info"] = json.loads(decoded_payload)
+    except:
+        st.session_state["user_info"] = {"name": "User", "email": ""}
+
 # --- 3. SESSION STATE (Persistent Memory) ---
 if "lang" not in st.session_state: st.session_state.lang = "TH"
-if "logged_in" not in st.session_state: st.session_state.logged_in = False
 
 # ระบบ Buffer เก็บรูปไม่ให้หายตอน Rerun
 if "img_plan" not in st.session_state: st.session_state.img_plan = None
@@ -83,21 +136,20 @@ with nav_c2:
         st.session_state.lang = "EN" if st.session_state.lang == "TH" else "TH"
         st.rerun()
 with nav_c3:
-    if not st.session_state.logged_in:
-        if st.button("SIGN IN"):
-            st.session_state.logged_in = True
+    # ดึงชื่อจากระบบ Google มาโชว์
+    user_name = st.session_state["user_info"].get("name", "User").upper()
+    with st.popover("👤"):
+        st.markdown(f"**คุณ {user_name}**")
+        st.divider()
+        st.button("ถอดแบบ BOQ [Pro]", use_container_width=True, disabled=True)
+        st.button("เช็คราคาวัสดุ [Coming Soon]", use_container_width=True, disabled=True)
+        st.button("สร้างรายงาน PDF", use_container_width=True)
+        if st.button("Sign Out", type="primary", use_container_width=True):
+            # ลบข้อมูลการล็อกอินออกเพื่อออกจากระบบ
+            del st.session_state["auth"]
+            if "user_info" in st.session_state:
+                del st.session_state["user_info"]
             st.rerun()
-    else:
-        with st.popover("👤"):
-            st.markdown(f"**คุณ {st.session_state.get('user', 'JOM')}**")
-            st.divider()
-            # เมนู Vision ครบถ้วน
-            st.button("ถอดแบบ BOQ [Pro]", use_container_width=True, disabled=True)
-            st.button("เช็คราคาวัสดุ [Coming Soon]", use_container_width=True, disabled=True)
-            st.button("สร้างรายงาน PDF", use_container_width=True)
-            if st.button("Sign Out", type="primary", use_container_width=True):
-                st.session_state.logged_in = False
-                st.rerun()
 
 # --- 5. MAIN CONTENT ---
 st.markdown("<div class='bk-title'>BHOON KHARN</div>", unsafe_allow_html=True)
