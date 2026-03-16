@@ -1,68 +1,57 @@
 import streamlit as st
+import google.generativeai as genai
 from PIL import Image
-import time
-import base64
 import json
+import re
+import os
+import base64
+from datetime import datetime
 from streamlit_oauth import OAuth2Component
 
-# --- 1. CONFIG (ลบความเป็น Streamlit ออกทั้งหมด) ---
+# --- 1. CONFIG & STYLE (พรีเมียมสไตล์ BHOON KHARN - คงเดิมเป๊ะ 100%) ---
 st.set_page_config(
-    page_title="BHOON KHARN AI",
+    page_title="BHOON KHARN AI", 
     page_icon="🏗️",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# --- 2. MASTER CSS (แก้ปัญหาสัดส่วน, Ghost Box และปุ่มเอียง) ---
 st.markdown("""
 <style>
-    /* ปิดส่วนเกินของ Streamlit */
+    @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap');
+    :root { --bk-gold: #B59473; --bk-brown: #4A3F35; --bk-dark: #1E1A17; }
+    
+    html, body, [class*="st-app"] { background-color: var(--bk-dark); color: #F5F5F5; font-family: 'Sarabun', sans-serif; }
+    
+    /* ซ่อนส่วนเกิน Streamlit */
     [data-testid="stSidebar"], [data-testid="collapsedControl"] { display: none !important; }
     #MainMenu, footer, header { visibility: hidden; }
-    html, body, [class*="st-app"] { background-color: #1E1A17; color: #F5F5F5; font-family: 'Inter', sans-serif; }
 
-    /* 1. ระบบ Header (ปุ่มจิ๋วและสถานะ) */
+    .main-title { color: var(--bk-gold); text-align: center; font-weight: 700; font-size: 2.2rem; margin-bottom: 0px; margin-top: 30px; }
+    .story-text { text-align: center; color: #A09080; font-size: 0.85rem; margin-bottom: 30px; padding: 0 10%; }
+    
+    .section-header { color: var(--bk-gold); font-size: 1.2rem; font-weight: 700; border-bottom: 1px solid rgba(181, 148, 115, 0.3); padding-bottom: 8px; margin-top: 30px; margin-bottom: 15px; }
+    
+    .content-list { line-height: 2; color: #E0E0E0; margin-bottom: 20px; list-style-type: none; padding-left: 0; }
+    .content-list li { margin-bottom: 10px; padding-left: 25px; position: relative; }
+    .content-list li::before { content: "•"; color: var(--bk-gold); position: absolute; left: 0; font-weight: bold; }
+    
+    .next-task-box { background: rgba(181, 148, 115, 0.08); border: 1px dashed var(--bk-gold); border-radius: 12px; padding: 20px; margin: 15px 0; color: #E0E0E0; line-height: 1.8; }
+
+    .mat-table-header { background: var(--bk-brown); color: var(--bk-gold); font-weight: 700; padding: 15px; border-radius: 10px 10px 0 0; display: flex; align-items: center; }
+    .mat-thumb-xl { width: 150px; height: 150px; border-radius: 12px; object-fit: cover; border: 2px solid rgba(181, 148, 115, 0.4); background: #2A2420; margin: 10px 0; }
+    
+    .btn-search { color: var(--bk-gold) !important; text-decoration: none; border: 1px solid var(--bk-gold); padding: 8px 18px; border-radius: 8px; font-size: 0.9rem; font-weight: bold; }
+    .btn-search:hover { background: var(--bk-gold); color: white !important; }
+
+    .owner-box { border-left: 5px solid var(--bk-gold); padding: 20px; background: rgba(181, 148, 115, 0.07); border-radius: 0 15px 15px 0; margin: 25px 0; }
+
+    /* Login UI Custom */
+    .login-box { text-align: center; margin-top: 100px; padding: 40px; border: 1px solid var(--bk-gold); border-radius: 20px; background: rgba(181, 148, 115, 0.05); }
+    
+    /* Navigation */
     .top-nav { position: fixed; top: 15px; right: 25px; display: flex; align-items: center; gap: 10px; z-index: 10000; }
     .status-dot { width: 6px; height: 6px; border-radius: 50%; background: #28a745; box-shadow: 0 0 5px #28a745; margin-right: 5px; }
-    
-    div[data-testid="stColumn"] button {
-        min-width: 45px !important; height: 28px !important;
-        font-size: 0.65rem !important; padding: 0 !important;
-        border: 1px solid #444 !important; background: transparent !important; color: #888 !important;
-    }
-
-    /* 2. กำจัดกล่องสี่เหลี่ยมเหนือรูป (Ghost Box Remover) */
-    [data-testid="stFileUploaderFileName"], 
-    [data-testid="stProgress"],
-    .st-emotion-cache-12w0qpk, 
-    .st-emotion-cache-not62 { display: none !important; }
-    
-    .stFileUploader section { 
-        padding: 0.8rem 1rem !important; min-height: 80px !important; 
-        border-radius: 6px !important; border: 1px solid #333 !important; 
-        background: rgba(255,255,255,0.02) !important;
-    }
-    
-    .preview-box {
-        margin-top: 15px; text-align: center; border: 1px solid #333;
-        border-radius: 8px; padding: 12px; background: rgba(0,0,0,0.15);
-    }
-
-    /* 3. ล็อกปุ่ม "เริ่มการวิเคราะห์" ให้อยู่กึ่งกลาง 100% (Flexbox Absolute Center) */
-    .center-wrapper {
-        display: flex; justify-content: center; align-items: center;
-        width: 100%; margin: 40px 0;
-    }
-    div.stButton > button[kind="primary"] {
-        background-color: #B59473 !important; color: #1E1A17 !important;
-        width: 280px !important; height: 48px !important;
-        border: none !important; font-weight: 700 !important; font-size: 0.95rem !important;
-        border-radius: 6px !important;
-    }
-
-    /* Branding */
-    .bk-title { font-size: 2.6rem; font-weight: 700; text-align: center; letter-spacing: -1px; margin-top: 40px; color: #B59473; }
-    .bk-subtitle { font-size: 0.75rem; color: #666; text-align: center; margin-bottom: 40px; text-transform: uppercase; letter-spacing: 5px; }
 </style>
 
 <div class="top-nav">
@@ -72,27 +61,22 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================================
-# 🛑 ระบบประตู Login (Gatekeeper) ด้วย Google 🛑
+# 🛑 ระบบประตู LOGIN (GATEKEEPER) 🛑
 # ==========================================================
 CLIENT_ID = "358673361686-q6nuqn6tqefffcrm9krtcv1u11rmvt8j.apps.googleusercontent.com"
-# ดึง Secret จาก Environment Variables (ในเครื่องคือไฟล์ secrets.toml)
-try:
-    CLIENT_SECRET = st.secrets["GOOGLE_CLIENT_SECRET"]
-except:
-    CLIENT_SECRET = "" # ดักไว้เผื่อไฟล์ secret หาย
-
+CLIENT_SECRET = st.secrets.get("GOOGLE_CLIENT_SECRET", "")
 AUTHORIZE_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth"
 TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
 REVOKE_ENDPOINT = "https://oauth2.googleapis.com/revoke"
 
 oauth2 = OAuth2Component(CLIENT_ID, CLIENT_SECRET, AUTHORIZE_ENDPOINT, TOKEN_ENDPOINT, TOKEN_ENDPOINT, REVOKE_ENDPOINT)
 
-# เช็คว่าล็อกอินหรือยัง ถ้ายังให้โชว์แค่ปุ่ม
 if "auth" not in st.session_state:
-    st.markdown("<h2 style='text-align: center; color: #B59473; margin-top: 80px;'>🔒 PRIVATE ACCESS</h2>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #888; margin-bottom: 30px;'>กรุณาเข้าสู่ระบบด้วย Google เพื่อใช้งาน BHOON KHARN AI</p>", unsafe_allow_html=True)
+    st.markdown("<div class='login-box'>", unsafe_allow_html=True)
+    st.markdown("<h2 style='color: #B59473;'>BHOON KHARN AI</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #A09080;'>PRIVATE CONSTRUCTION INTELLIGENCE ACCESS</p>", unsafe_allow_html=True)
     
-    col1, col2, col3 = st.columns([1, 1, 1])
+    col1, col2, col3 = st.columns([1.2, 1, 1.2])
     with col2:
         result = oauth2.authorize_button(
             name="Continue with Google",
@@ -102,100 +86,188 @@ if "auth" not in st.session_state:
             key="google_login",
             extras_params={"prompt": "select_account"}
         )
+    st.markdown("</div>", unsafe_allow_html=True)
     
     if result:
         st.session_state["auth"] = result["token"]
         st.rerun()
-        
-    st.stop() # หยุดการรันโค้ดตรงนี้ (ซ่อนแอปหลักไว้)
+    st.stop()
 
-# ==========================================================
-# 🟢 ถอดรหัสชื่อผู้ใช้ (ถ้าหลุดมาตรงนี้ได้แปลว่าล็อกอินแล้ว) 🟢
-# ==========================================================
+# --- ถอดรหัสชื่อผู้ใช้ ---
 if "user_info" not in st.session_state:
-    try:
-        token_data = st.session_state["auth"]["id_token"]
-        payload = token_data.split(".")[1]
-        payload += "=" * ((4 - len(payload) % 4) % 4)
-        decoded_payload = base64.urlsafe_b64decode(payload).decode('utf-8')
-        st.session_state["user_info"] = json.loads(decoded_payload)
-    except:
-        st.session_state["user_info"] = {"name": "User", "email": ""}
+    token_data = st.session_state["auth"]["id_token"]
+    payload = token_data.split(".")[1]
+    payload += "=" * ((4 - len(payload) % 4) % 4)
+    decoded_payload = base64.urlsafe_b64decode(payload).decode('utf-8')
+    st.session_state["user_info"] = json.loads(decoded_payload)
 
-# --- 3. SESSION STATE (Persistent Memory) ---
+# ==========================================================
+# 🟢 เริ่มต้นแอปหลัก (หลังจาก LOGIN แล้ว) 🟢
+# ==========================================================
+
+# --- 2. ENGINE (ระบบอัจฉริยะของคุณ - คงเดิม) ---
+API_KEY = st.secrets.get("GEMINI_API_KEY", "AIzaSyC1SVrdU2iUOuvHCVnk0BfFE93vMlImEEc")
+
+def init_ai_engine():
+    try:
+        genai.configure(api_key=API_KEY)
+        available_models = []
+        for m in genai.list_models():
+            if 'generateContent' in m.supported_generation_methods and 'gemini' in m.name.lower():
+                name = m.name.replace("models/", "")
+                available_models.append(name)
+        
+        def sort_key(model_name):
+            match = re.search(r'(\d+\.\d+)', model_name)
+            version = float(match.group(1)) if match else 99.0
+            cost_tier = 0 if 'flash' in model_name else (1 if 'pro' in model_name else 2)
+            is_exp = 1 if 'exp' in model_name else 0
+            return (version, cost_tier, is_exp, model_name)
+
+        available_models.sort(key=sort_key)
+        for model_name in available_models:
+            try:
+                model = genai.GenerativeModel(model_name)
+                model.generate_content("test", generation_config={"max_output_tokens": 1})
+                return model, f"Online ({model_name})"
+            except Exception: continue
+        return None, "Offline (ไม่พบโมเดล)"
+    except Exception as e: return None, f"Offline (Error: {e})"
+
+if "engine" not in st.session_state:
+    st.session_state.engine, st.session_state.status = init_ai_engine()
+
+if "json_data" not in st.session_state: st.session_state.json_data = {}
 if "lang" not in st.session_state: st.session_state.lang = "TH"
 
-# ระบบ Buffer เก็บรูปไม่ให้หายตอน Rerun
-if "img_plan" not in st.session_state: st.session_state.img_plan = None
-if "img_site" not in st.session_state: st.session_state.img_site = None
+# --- 3. UI FUNCTIONS (คงเดิมเป๊ะ) ---
+def render_shopping_list_v4(materials_data):
+    if not materials_data: return
+    st.markdown("<div class='section-header'>🗓️ รายการเตรียมวัสดุ (Visual Shopping List V4)</div>", unsafe_allow_html=True)
+    base_url = "https://commons.wikimedia.org/w/index.php?title=Special:Redirect/file/"
+    suffix = "&width=300"
+    trusted_img_library = {
+        "ปูน": f"{base_url}Cement_bags_in_a_store_01.jpg{suffix}",
+        "ทราย": f"{base_url}Pile_of_sand.jpg{suffix}",
+        "เหล็ก": f"{base_url}Pile_of_Rebar.jpg{suffix}",
+        "อิฐ": f"{base_url}Bricks_001.jpg{suffix}",
+        "ท่อ": f"{base_url}PVC_pipes_01.jpg{suffix}",
+        "สี": f"{base_url}Paint_cans_on_a_shelf.jpg{suffix}",
+        "กระเบื้อง": f"{base_url}Ceramic_tiles_01.jpg{suffix}",
+        "สายไฟ": f"{base_url}Electrical_wiring.jpg{suffix}",
+        "ไม้": f"{base_url}Lumber_stack_01.jpg{suffix}"
+    }
 
-# --- 4. NAVIGATION BAR ---
+    st.markdown("""
+        <div class='mat-table-header'>
+            <div style='width:40px;'></div>
+            <div style='width:160px; margin-left:10px;'>ประเภทวัสดุ</div>
+            <div style='flex:3; padding-left:30px;'>สเปกที่แนะนำ</div>
+            <div style='flex:1.5; text-align:center;'>ราคากลางท้องถิ่น</div>
+            <div style='flex:1.2; text-align:right;'>เช็คราคา</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    for i, item in enumerate(materials_data):
+        name = item.get("name", "วัสดุก่อสร้าง")
+        price = item.get("price", "฿0 - ฿0")
+        keyword = item.get("img_keyword", "งานดิน").lower()
+        found_key = next((k for k in trusted_img_library if k in keyword or k in name.lower()), "วัสดุ")
+        img_url = trusted_img_library.get(found_key, f"{base_url}Construction_site_in_Zhenjiang.jpg{suffix}")
+        
+        cols = st.columns([0.4, 1.6, 3, 1.5, 1.2])
+        with cols[0]: st.checkbox("", key=f"mat_v4_chk_{i}")
+        with cols[1]: st.markdown(f"<img src='{img_url}' class='mat-thumb-xl'>", unsafe_allow_html=True)
+        with cols[2]: st.markdown(f"<div style='margin-top:45px; font-weight:700; font-size:1.1rem;'>{name}</div><div style='color:#A09080; font-size:0.85rem;'>รุ่นมาตรฐานงานก่อสร้างไทย</div>", unsafe_allow_html=True)
+        with cols[3]: st.markdown(f"<div style='margin-top:55px; color:#FFD700; font-weight:700; font-size:1.15rem; text-align:center;'>{price}</div>", unsafe_allow_html=True)
+        with cols[4]: st.markdown(f"<div style='margin-top:50px; text-align:right;'><a href='https://www.google.com/search?q={name}+ราคา' target='_blank' class='btn-search'>🌐 คลิก</a></div>", unsafe_allow_html=True)
+
+# --- 4. NAVIGATION & MAIN UI ---
 nav_c1, nav_c2, nav_c3 = st.columns([9.1, 0.4, 0.5])
 with nav_c2:
     if st.button(st.session_state.lang):
         st.session_state.lang = "EN" if st.session_state.lang == "TH" else "TH"
         st.rerun()
 with nav_c3:
-    # ดึงชื่อจากระบบ Google มาโชว์
-    user_name = st.session_state["user_info"].get("name", "User").upper()
+    current_user = st.session_state["user_info"].get("name", "User").upper()
     with st.popover("👤"):
-        st.markdown(f"**คุณ {user_name}**")
+        st.markdown(f"**คุณ {current_user}**")
         st.divider()
-        st.button("ถอดแบบ BOQ [Pro]", use_container_width=True, disabled=True)
-        st.button("เช็คราคาวัสดุ [Coming Soon]", use_container_width=True, disabled=True)
         st.button("สร้างรายงาน PDF", use_container_width=True)
         if st.button("Sign Out", type="primary", use_container_width=True):
-            # ลบข้อมูลการล็อกอินออกเพื่อออกจากระบบ
             del st.session_state["auth"]
-            if "user_info" in st.session_state:
-                del st.session_state["user_info"]
             st.rerun()
 
-# --- 5. MAIN CONTENT ---
-st.markdown("<div class='bk-title'>BHOON KHARN</div>", unsafe_allow_html=True)
-txt_sub = "Advanced Construction Intelligence" if st.session_state.lang == "EN" else "วิเคราะห์หน้างานก่อสร้างด้วย AI Vision"
-st.markdown(f"<div class='bk-subtitle'>{txt_sub}</div>", unsafe_allow_html=True)
+st.markdown("<div class='main-title'>BHOON KHARN AI</div>", unsafe_allow_html=True)
+st.markdown("<div class='story-text'>วิเคราะห์หน้างานก่อสร้างล่วงหน้าด้วย AI Vision อัจฉริยะ (เสถียรที่สุด)</div>", unsafe_allow_html=True)
 
-st.divider()
+c1, c2 = st.columns(2)
+with c1:
+    st.markdown(f"<center><b style='color:var(--bk-gold);'>1. แปลน / Blueprint</b></center>", unsafe_allow_html=True)
+    bp = st.file_uploader("📋 แปลน", type=['jpg','jpeg','png','pdf'], label_visibility="collapsed")
+    if bp and bp.type != "application/pdf": st.image(bp)
+with c2:
+    st.markdown(f"<center><b style='color:var(--bk-gold);'>2. รูปถ่ายหน้างาน</b></center>", unsafe_allow_html=True)
+    site = st.file_uploader("📸 หน้างาน", type=['jpg','jpeg','png'], label_visibility="collapsed")
+    if site: st.image(site)
 
-# Grid Layout สำหรับอัปโหลด
-up_col1, up_col2 = st.columns(2)
+def run_analysis():
+    if not st.session_state.engine: 
+        st.error("ระบบไม่พร้อมใช้งาน กรุณารีเฟรชหน้าเว็บ")
+        return
+    with st.spinner("AI กำลังวิเคราะห์..."):
+        try:
+            prompt = """วิเคราะห์ภาพและตอบเป็น JSON เท่านั้น:
+            {
+                "analysis": ["ข้อ 1", "ข้อ 2"],
+                "risk": ["เสี่ยง 1", "เสี่ยง 2"],
+                "checklist": ["ตรวจ 1", "ตรวจ 2"],
+                "standard": ["มาตรฐาน 1", "มาตรฐาน 2"],
+                "next_task": "งานถัดไป 1 ประโยค",
+                "future_materials": [
+                    {"name": "สเปกวัสดุมาตรฐาน 1", "price": "฿-฿", "img_keyword": "ปูน"},
+                    {"name": "สเปกวัสดุมาตรฐาน 2", "price": "฿-฿", "img_keyword": "เหล็ก"}
+                ],
+                "owner_note": ["แนะนำ 1", "แนะนำ 2"]
+            }"""
+            img_inp = Image.open(site) if site else Image.open(bp)
+            res = st.session_state.engine.generate_content([prompt, img_inp], generation_config={"response_mime_type": "application/json"})
+            st.session_state.json_data = json.loads(res.text)
+        except Exception as e: st.error(f"Error: {e}")
 
-with up_col1:
-    st.markdown(f"<center><b style='font-size:0.8rem;'>1. {'BLUEPRINT / PLAN' if st.session_state.lang == 'EN' else 'แปลน / Blueprint'}</b></center>", unsafe_allow_html=True)
-    f_plan = st.file_uploader("p", label_visibility="collapsed", type=['jpg','png','pdf'], key="uploader_p")
-    
-    # อัปเดต Buffer เมื่อมีการเปลี่ยนแปลง
-    if f_plan: st.session_state.img_plan = f_plan
-    elif not f_plan: st.session_state.img_plan = None
-    
-    if st.session_state.img_plan and st.session_state.img_plan.type != "application/pdf":
-        st.markdown('<div class="preview-box">', unsafe_allow_html=True)
-        st.image(st.session_state.img_plan, width=280)
-        st.markdown('</div>', unsafe_allow_html=True)
+if st.button("🚀 เริ่มการวิเคราะห์", use_container_width=True, type="primary"):
+    if bp or site: run_analysis()
+    else: st.warning("กรุณาอัปโหลดรูปภาพ")
 
-with up_col2:
-    st.markdown(f"<center><b style='font-size:0.8rem;'>2. {'SITE PHOTO' if st.session_state.lang == 'EN' else 'รูปถ่ายหน้างาน'}</b></center>", unsafe_allow_html=True)
-    f_site = st.file_uploader("s", label_visibility="collapsed", type=['jpg','png'], key="uploader_s")
-    
-    if f_site: st.session_state.img_site = f_site
-    elif not f_site: st.session_state.img_site = None
-    
-    if st.session_state.img_site:
-        st.markdown('<div class="preview-box">', unsafe_allow_html=True)
-        st.image(st.session_state.img_site, width=280)
-        st.markdown('</div>', unsafe_allow_html=True)
+# --- 5. DISPLAY (คงเดิมเป๊ะ) ---
+if st.session_state.json_data:
+    d = st.session_state.json_data
+    st.divider()
+    def render_sec(title, key):
+        if key in d:
+            st.markdown(f"<div class='section-header'>{title}</div>", unsafe_allow_html=True)
+            items = d[key]
+            if isinstance(items, list):
+                list_html = "<ul class='content-list'>" + "".join([f"<li>{i}</li>" for i in items]) + "</ul>"
+                st.markdown(list_html, unsafe_allow_html=True)
+            else: st.markdown(f"<div style='margin-bottom:20px;'>{items}</div>", unsafe_allow_html=True)
 
-# --- 6. ACTION BUTTON (กึ่งกลางเป๊ะ 100%) ---
-st.markdown("<div class='center-wrapper'>", unsafe_allow_html=True)
-run_txt = "RUN ANALYSIS" if st.session_state.lang == "EN" else "เริ่มการวิเคราะห์"
-if st.button(run_txt, type="primary"):
-    if st.session_state.img_plan or st.session_state.img_site:
-        with st.spinner("Analyzing..."):
-            time.sleep(1.5)
-            st.success("Complete")
-    else:
-        st.warning("Please upload files.")
-st.markdown("</div>", unsafe_allow_html=True)
+    render_sec("🔍 วิเคราะห์หน้างาน", "analysis")
+    render_sec("⚠️ จุดวิกฤตที่ต้องระวัง", "risk")
+    render_sec("📝 เทคนิคการตรวจงาน", "checklist")
+    render_sec("🏗️ มาตรฐานวิศวกรรม", "standard")
 
-st.markdown(f"<div style='text-align:center; margin-top:100px; color:#333; font-size:0.6rem; letter-spacing:2px;'>BHOON KHARN © 2026 | INTERNATIONAL CONSTRUCTION STANDARD</div>", unsafe_allow_html=True)
+    if "next_task" in d:
+        st.markdown("<div class='section-header'>🏗️ งานลำดับถัดไป</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='next-task-box'>{d['next_task']}</div>", unsafe_allow_html=True)
+
+    if "future_materials" in d: render_shopping_list_v4(d["future_materials"])
+
+    if "owner_note" in d:
+        st.markdown("<div class='section-header'>🏠 แนะนำพิเศษสำหรับเจ้าของบ้าน</div>", unsafe_allow_html=True)
+        items = d["owner_note"]
+        if isinstance(items, list):
+            list_html = "<div class='owner-box'><ul class='content-list' style='margin-bottom:0;'>" + "".join([f"<li>{i}</li>" for i in items]) + "</ul></div>"
+            st.markdown(list_html, unsafe_allow_html=True)
+
+st.markdown(f"<div style='text-align:center; margin-top:40px; color:#A09080;'>BHOON KHARN | 088-777-6566</div>", unsafe_allow_html=True)
