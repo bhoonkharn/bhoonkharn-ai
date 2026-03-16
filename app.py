@@ -36,13 +36,11 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================================
-# 🛑 ระบบ LOGIN (Google OAuth2) - แก้ไขเรื่อง / เรียบร้อยครับ
+# 🛑 ระบบ LOGIN (Google OAuth2) - ปรับตามข้อ 1, 2 ที่กำชับ
 # ==========================================================
 CLIENT_ID = "358673361686-q6nuqn6tqefffcrm9krtcv1u11rmvt8j.apps.googleusercontent.com"
 CLIENT_SECRET = st.secrets.get("GOOGLE_CLIENT_SECRET", "")
 ADMIN_EMAIL = "bhoonkharn@gmail.com"
-# แก้ไขจุดนี้: ลบ / ปิดท้ายออกให้ตรงตามที่คุณเช็คแล้วครับ
-REDIRECT_URI = "https://bhoonkharn-ai.streamlit.app"
 
 oauth2 = OAuth2Component(CLIENT_ID, CLIENT_SECRET, "https://accounts.google.com/o/oauth2/v2/auth", "https://oauth2.googleapis.com/token", "https://oauth2.googleapis.com/token", "https://oauth2.googleapis.com/revoke")
 
@@ -52,8 +50,16 @@ if "auth" not in st.session_state:
     st.markdown("<p style='text-align:center; color:#A09080; letter-spacing:3px;'>PRIVATE SYSTEM ACCESS</p>", unsafe_allow_html=True)
     l_c1, l_c2, l_c3 = st.columns([1.2, 1, 1.2])
     with l_c2:
-        # ใช้ REDIRECT_URI แบบไม่มี /
-        res = oauth2.authorize_button("Sign in with Google", REDIRECT_URI, "openid email profile", icon="https://www.iconpacks.net/icons/2/free-google-icon-2039-thumb.png", key="google_login")
+        # ปรับตามข้อ 1: ระบุชื่อตัวแปรให้ชัดเจน 
+        # ปรับตามข้อ 2: เพิ่ม extras_params เพื่อบังคับเลือกบัญชีและล้าง Session ที่ค้าง
+        res = oauth2.authorize_button(
+            name="Sign in with Google",
+            icon="https://www.iconpacks.net/icons/2/free-google-icon-2039-thumb.png",
+            redirect_uri="https://bhoonkharn-ai.streamlit.app", 
+            scope="openid email profile",
+            key="google_login",
+            extras_params={"prompt": "select_account"}
+        )
     if res:
         st.session_state["auth"] = res["token"]
         st.rerun()
