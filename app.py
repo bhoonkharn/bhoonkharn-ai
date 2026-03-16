@@ -7,11 +7,12 @@ import re
 # --- 5. หน้าตาเว็บ (Minimalist SRS Phase 1) ---
 st.set_page_config(
     page_title="BHOON KHARN AI", 
-    page_icon="logo.png", 
+    page_icon="logo.png", # ใช้ไอคอนบน Tab Browser เท่านั้น
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
+# สไตล์ Minimalist (Gold/Dark Theme) ตามสั่ง ไม่ใช้ Emoji
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap');
@@ -34,11 +35,11 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- Initial Session State ---
+# Initial State
 if "usage_count" not in st.session_state: st.session_state.usage_count = 0
 if "lang" not in st.session_state: st.session_state.lang = "TH"
 if "json_data" not in st.session_state: st.session_state.json_data = {}
-if "is_admin" not in st.session_state: st.session_state.is_admin = True
+if "is_admin" not in st.session_state: st.session_state.is_admin = True # จำลองสถานะ Admin เพื่อเทส
 
 # --- 2. ระบบค้นหา Model อัจฉริยะ (Dynamic Model Hunter) ---
 API_KEY = st.secrets.get("GEMINI_API_KEY", "")
@@ -49,42 +50,43 @@ def init_ai_engine():
         
         # ดึงรายชื่อ Model อัตโนมัติ (No Hardcode)
         try:
-            models_list = [m.name.replace("models/", "") for m in genai.list_models() if 'generateContent' in m.supported_generation_methods and 'gemini' in m.name.lower()]
+            available_models = [m.name.replace("models/", "") for m in genai.list_models() 
+                              if 'generateContent' in m.supported_generation_methods and 'gemini' in m.name.lower()]
         except:
-            # Fallback List ถ้าดึงรายชื่อไม่ได้ ให้ใช้รุ่นมาตรฐานที่มักจะเปิดให้ใช้
-            models_list = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-1.0-pro"]
+            # สำรองรุ่นพื้นฐานหากดึงรายชื่อไม่ได้
+            available_models = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-1.0-pro"]
         
-        # จัดเรียง (ใหม่ -> เก่า)
-        def sort_models(name):
+        # จัดเรียง (ใหม่ไปเก่า)
+        def sort_logic(name):
             v_match = re.search(r'(\d+\.\d+)', name)
             v = float(v_match.group(1)) if v_match else 1.0
             tier = 0 if 'flash' in name else (1 if 'pro' in name else 2)
             return (v, -tier)
-            
-        models_list.sort(key=sort_models, reverse=True)
+        available_models.sort(key=sort_logic, reverse=True)
 
-        # Privilege Logic
+        # 1. Privilege Logic (Admin vs General)
         if st.session_state.is_admin or st.session_state.usage_count == 0:
-            target_list = models_list 
+            target_list = available_models # Admin/ครั้งแรก: ลองจากรุ่นใหม่สุด
         else:
-            target_list = models_list[::-1] 
+            target_list = available_models[::-1] # ครั้งถัดไป: ลองจากรุ่นเก่าสุดเพื่อประหยัด
 
-        # Loop & Try: วนทดสอบทีละตัวจนกว่าจะเจอตัวที่ใช้งานได้จริง
+        # Loop & Try: วนทดสอบจนกว่าจะเจอตัวที่ Online จริง
         for m_name in target_list:
             try:
                 m = genai.GenerativeModel(m_name)
+                # ทดสอบเบาๆ เพื่อเช็คสิทธิ์ใช้งานจริง
                 m.generate_content("test", generation_config={"max_output_tokens": 1})
                 return m, f"ONLINE ({m_name})"
             except:
                 continue
         return None, "OFFLINE"
     except:
-        return None, "OFFLINE (API KEY ERROR)"
+        return None, "OFFLINE (CONNECTION ERROR)"
 
 if "engine" not in st.session_state:
     st.session_state.engine, st.session_state.status = init_ai_engine()
 
-# --- 5. Header: มุมขวาบน ---
+# --- 5. Header: มุมขวาบน (ไฟสถานะ, สลับภาษา, Popover) ---
 st.markdown(f'<div class="top-nav"><div style="display:flex;align-items:center;"><div class="status-dot"></div><span class="status-text">{st.session_state.status}</span></div></div>', unsafe_allow_html=True)
 
 nav_c1, nav_c2, nav_c3 = st.columns([9.2, 0.4, 0.4])
@@ -94,9 +96,9 @@ with nav_c2:
         st.rerun()
 with nav_c3:
     with st.popover("👤"):
-        # --- 3. เมนูเครื่องมือใน Popover ---
-        st.markdown(f"**USER STATUS: {'ADMIN' if st.session_state.is_admin else 'GENERAL'}**")
-        if st.button("สลับสิทธิ์ (TEST ONLY)"):
+        # --- 3. เมนูเครื่องมือใน Popover (Full Menu Structure) ---
+        st.markdown(f"**STATUS: {'ADMIN' if st.session_state.is_admin else 'GENERAL'}**")
+        if st.button("สลับสิทธิ์ (ทดสอบระบบวน Model)"):
             st.session_state.is_admin = not st.session_state.is_admin
             st.session_state.engine, st.session_state.status = init_ai_engine()
             st.rerun()
@@ -116,34 +118,35 @@ st.markdown("<div class='story-text'>Construction Inspection Intelligence</div>"
 c1, c2 = st.columns(2)
 with c1:
     st.markdown("<p style='text-align:center; color:var(--bk-gold); font-weight:700;'>BLUEPRINT / แปลน</p>", unsafe_allow_html=True)
-    bp = st.file_uploader("BP", type=['jpg','jpeg','png','pdf'], label_visibility="collapsed")
+    bp = st.file_uploader("BP_UPLOAD", type=['jpg','jpeg','png','pdf'], label_visibility="collapsed")
     if bp and bp.type != "application/pdf": st.image(bp)
 with c2:
     st.markdown("<p style='text-align:center; color:var(--bk-gold); font-weight:700;'>SITE PHOTO / หน้างาน</p>", unsafe_allow_html=True)
-    site = st.file_uploader("SITE", type=['jpg','jpeg','png'], label_visibility="collapsed")
+    site = st.file_uploader("SITE_UPLOAD", type=['jpg','jpeg','png'], label_visibility="collapsed")
     if site: st.image(site)
 
 if st.button("RUN ANALYSIS / เริ่มการวิเคราะห์", use_container_width=True, type="primary"):
     if bp or site:
-        if not st.session_state.engine: 
+        if not st.session_state.engine:
             st.session_state.engine, st.session_state.status = init_ai_engine()
             st.rerun()
         else:
             with st.spinner("ANALYZING..."):
                 try:
-                    prompt = 'วิเคราะห์ภาพแปลนและหน้างานเทียบกัน และตอบเป็น JSON ภาษาไทย: {"analysis":[], "risk":[], "checklist":[], "standard":[], "next_task":"", "materials":[], "owner_note":[]}'
+                    prompt = 'วิเคราะห์ภาพเปรียบเทียบและตอบเป็น JSON ภาษาไทย: {"analysis":[], "risk":[], "checklist":[], "standard":[], "next_task":"", "materials":[], "owner_note":[]}'
                     img_inp = Image.open(site) if site else Image.open(bp)
                     res = st.session_state.engine.generate_content([prompt, img_inp], generation_config={"response_mime_type": "application/json"})
                     st.session_state.json_data = json.loads(res.text)
                     st.session_state.usage_count += 1
-                except Exception as e: st.error(f"Error: {e}")
-    else: st.warning("Please upload image")
+                except Exception as e: st.error(f"Error during analysis: {e}")
+    else: st.warning("กรุณาอัปโหลดรูปภาพ")
 
-# --- 4. การแสดงผลวิเคราะห์และวัสดุ ---
+# --- 4. การแสดงผลวิเคราะห์และวัสดุ (Results & Search Links) ---
 if st.session_state.json_data:
     d = st.session_state.json_data
     st.divider()
     
+    # Minimalist Results: ข้อๆ ตัวหนา เส้นแบ่ง ไม่ใช้ไอคอน
     def render_sec(title, key):
         if key in d:
             st.markdown(f"<div class='section-header'>{title}</div>", unsafe_allow_html=True)
@@ -162,6 +165,7 @@ if st.session_state.json_data:
         st.markdown("<div class='section-header'>🏗️ งานลำดับถัดไป</div>", unsafe_allow_html=True)
         st.markdown(f"<div style='margin-bottom:20px;'><b>{d['next_task']}</b></div>", unsafe_allow_html=True)
 
+    # Material Search List: 5-7 รายการ ลิงก์ไป Google Search (Text Only)
     if "materials" in d:
         st.markdown("<div class='section-header'>🗓️ รายการวัสดุที่ต้องเตรียม</div>", unsafe_allow_html=True)
         for item in d["materials"][:7]:
