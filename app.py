@@ -42,7 +42,6 @@ CLIENT_ID = "358673361686-q6nuqn6tqefffcrm9krtcv1u11rmvt8j.apps.googleuserconten
 CLIENT_SECRET = st.secrets.get("GOOGLE_CLIENT_SECRET", "")
 ADMIN_EMAIL = "bhoonkharn@gmail.com"
 
-# แก้ไขจุดนี้: ใช้แค่ 5 ตัวแปรตามที่คุณเคยใช้ได้ (ตัด REVOKE_ENDPOINT ออก)
 oauth2 = OAuth2Component(
     CLIENT_ID, 
     CLIENT_SECRET, 
@@ -57,7 +56,6 @@ if "auth" not in st.session_state:
     st.markdown("<p style='text-align:center; color:#A09080; letter-spacing:3px;'>PRIVATE SYSTEM ACCESS</p>", unsafe_allow_html=True)
     l_c1, l_c2, l_c3 = st.columns([1.2, 1, 1.2])
     with l_c2:
-        # ระบุชื่อตัวแปรให้ชัดเจนตามที่คุณเคยแก้แล้วใช้ได้
         res = oauth2.authorize_button(
             name="Continue with Google",
             icon="https://www.iconpacks.net/icons/2/free-google-icon-2039-thumb.png",
@@ -68,6 +66,21 @@ if "auth" not in st.session_state:
         )
     if res:
         st.session_state["auth"] = res["token"]
+        st.rerun()
+    st.stop()
+
+# ป้องกันแอปพังจากการถอดรหัส Token
+if "user_info" not in st.session_state:
+    try:
+        token_data = st.session_state["auth"].get("id_token", "")
+        if token_data:
+            payload = token_data.split(".")[1]
+            payload += "=" * ((4 - len(payload) % 4) % 4)
+            st.session_state["user_info"] = json.loads(base64.urlsafe_b64decode(payload).decode('utf-8'))
+        else:
+            st.session_state["user_info"] = {"email": "guest@bhoonkharn.com", "name": "Guest"}
+    except:
+        st.session_state["user_info"] = {"email": "guest@bhoonkharn.com", "name": "Guest"}
         st.rerun()
     st.stop()
 
