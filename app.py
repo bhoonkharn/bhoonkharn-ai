@@ -97,7 +97,7 @@ if "auth" not in st.session_state:
         result = oauth2.authorize_button(
             name="Continue with Google",
             icon="https://www.iconpacks.net/icons/2/free-google-icon-2039-thumb.png",
-            redirect_uri="http://localhost:8501", 
+            redirect_uri="https://bhoonkharn-ai.streamlit.app", 
             scope="openid email profile",
             key="google_login",
             extras_params={"prompt": "select_account"}
