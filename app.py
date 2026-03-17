@@ -6,7 +6,7 @@ import re
 import base64
 from streamlit_oauth import OAuth2Component
 
-# --- 1. CONFIG & STYLE (ปรับปรุงตามข้อ 1) ---
+# --- 1. CONFIG & STYLE (เน้นแก้จุดบกพร่อง UI) ---
 st.set_page_config(
     page_title="BHOON KHARN AI", 
     page_icon="logo.png", 
@@ -17,24 +17,15 @@ st.set_page_config(
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap');
-    :root { --bk-gold: #B59473; --bk-brown: #4A3F35; --bk-dark: #1E1A17; }
+    :root { --bk-gold: #B59473; --bk-dark: #1E1A17; }
     
     html, body, [class*="st-app"] { background-color: var(--bk-dark); color: #F5F5F5; font-family: 'Sarabun', sans-serif; }
     [data-testid="stSidebar"], [data-testid="collapsedControl"] { display: none !important; }
     #MainMenu, footer, header { visibility: hidden; }
 
-    .main-title { color: var(--bk-gold); text-align: center; font-weight: 700; font-size: 2.2rem; margin-top: 10px; }
-    
-    /* ข้อ 1: ลบกล่องและพื้นหลังใต้ชื่อแอปออกให้หมด */
-    .story-text { 
-        text-align: center; 
-        color: #A09080; 
-        font-size: 0.85rem; 
-        margin-bottom: 30px; 
-        letter-spacing: 2px;
-        background: transparent !important;
-        border: none !important;
-    }
+    /* ข้อ 2: ลบกล่องปริศนาใต้ชื่อแอปออก */
+    .main-title { color: var(--bk-gold); text-align: center; font-weight: 700; font-size: 2.2rem; margin-top: 10px; border: none; background: transparent; }
+    .story-text { text-align: center; color: #A09080; font-size: 0.85rem; margin-bottom: 30px; letter-spacing: 2px; border: none; background: transparent; }
     
     .upload-frame { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(181, 148, 115, 0.2); border-radius: 12px; padding: 25px; margin-bottom: 20px; }
     
@@ -46,7 +37,8 @@ st.markdown("""
     .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #28a745; box-shadow: 0 0 8px #28a745; margin-right: 8px; }
     .status-text { font-size: 0.75rem; color: #B59473; font-weight: 700; letter-spacing: 1.5px; }
     
-    div.stButton > button[key="lang_btn"] { min-width: 85px !important; width: 85px !important; padding: 0px !important; height: 35px !important; }
+    /* ข้อ 1: ปุ่มเปลี่ยนภาษาล็อคบรรทัดเดียว */
+    div.stButton > button[key="lang_btn"] { min-width: 90px !important; width: 90px !important; white-space: nowrap !important; padding: 0px !important; height: 35px !important; }
 
     button[kind="primary"] { 
         background-color: rgba(181, 148, 115, 0.1) !important; 
@@ -58,22 +50,22 @@ st.markdown("""
     }
     button[kind="primary"]:hover { background-color: var(--bk-gold) !important; color: var(--bk-dark) !important; }
 
-    .mat-item { margin-bottom: 15px; padding: 10px 0; border-bottom: 1px solid rgba(181, 148, 115, 0.1); }
-    .mat-link { color: var(--bk-gold); text-decoration: none; font-weight: 700; font-size: 1.1rem; }
-    .mat-price { color: #28a745; font-size: 0.95rem; font-weight: 700; margin-left: 12px; }
+    /* ข้อ 4: จัดระเบียบราคาวัสดุแบบซ้าย-ขวา */
+    .mat-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 10px 0; border-bottom: 1px solid rgba(181, 148, 115, 0.1); }
+    .mat-link { color: var(--bk-gold); text-decoration: none; font-weight: 700; font-size: 1.05rem; }
+    .mat-price { color: #28a745; font-size: 1rem; font-weight: 700; }
     
     .owner-box { border-left: 4px solid var(--bk-gold); padding: 5px 20px; background: rgba(181, 148, 115, 0.05); margin: 20px 0; border-radius: 0 10px 10px 0; width: 100%; }
     .footer-box { text-align: center; margin-top: 40px; padding: 30px 0; border-top: 1px solid rgba(181, 148, 115, 0.1); }
 </style>
 """, unsafe_allow_html=True)
 
-# --- Initial State ---
+# --- 2. LOGIN LOGIC (แก้ไขข้อ 3: จัดลำดับการตรวจสอบสิทธิ์ใหม่) ---
 if "usage_count" not in st.session_state: st.session_state.usage_count = 0
 if "chat_history" not in st.session_state: st.session_state.chat_history = []
 if "lang" not in st.session_state: st.session_state.lang = "TH"
 if "json_data" not in st.session_state: st.session_state.json_data = {}
 
-# --- 2. ENGINE & LOGIN LOGIC (แก้ไขข้อ 4: ลำดับการตรวจสอบสิทธิ์) ---
 CLIENT_ID = "358673361686-q6nuqn6tqefffcrm9krtcv1u11rmvt8j.apps.googleusercontent.com"
 CLIENT_SECRET = st.secrets.get("GOOGLE_CLIENT_SECRET", "")
 ADMIN_EMAIL = "bhoonkharn@gmail.com"
@@ -81,10 +73,11 @@ API_KEY = st.secrets.get("GEMINI_API_KEY", "")
 
 oauth2 = OAuth2Component(CLIENT_ID, CLIENT_SECRET, "https://accounts.google.com/o/oauth2/v2/auth", "https://oauth2.googleapis.com/token", "https://oauth2.googleapis.com/token")
 
-def trigger_login():
-    st.markdown("<div style='text-align:center; padding:20px; border:1px solid var(--bk-gold); border-radius:10px; background:rgba(181,148,115,0.05);'>", unsafe_allow_html=True)
+# ฟังก์ชันแสดงหน้า Login
+def trigger_login_page():
+    st.markdown("<div style='text-align:center; padding:30px; border:1px solid var(--bk-gold); border-radius:15px; background:rgba(181,148,115,0.05);'>", unsafe_allow_html=True)
     st.markdown("### 🔒 สิทธิ์ใช้งานฟรีหมดแล้ว")
-    st.write("กรุณาเข้าสู่ระบบเพื่อใช้งานต่อและบันทึกประวัติ")
+    st.write("กรุณาเข้าสู่ระบบเพื่อใช้งานต่อและเก็บประวัติการวิเคราะห์")
     res = oauth2.authorize_button(
         name="Sign in with Google",
         icon="https://www.iconpacks.net/icons/2/free-google-icon-2039-thumb.png",
@@ -98,7 +91,7 @@ def trigger_login():
         st.session_state["auth"] = res["token"]
         st.rerun()
 
-# จัดการข้อมูล User ทันทีที่ล็อกอิน
+# ตรวจสอบสถานะล็อกอินทันทีเมื่อเริ่มแอป
 if "auth" in st.session_state and "user_info" not in st.session_state:
     try:
         payload = st.session_state["auth"]["id_token"].split(".")[1]
@@ -106,7 +99,7 @@ if "auth" in st.session_state and "user_info" not in st.session_state:
         st.session_state["user_info"] = json.loads(base64.urlsafe_b64decode(payload).decode('utf-8'))
     except: st.session_state["user_info"] = {"email": "user", "name": "User"}
 
-# ระบบค้นหาโมเดล (ใหม่สุดก่อนเสมอ)
+# ระบบค้นหาโมเดล (เน้นรุ่นใหม่ล่าสุด)
 def get_engine():
     try:
         genai.configure(api_key=API_KEY)
@@ -120,8 +113,8 @@ def get_engine():
         
         models.sort(key=model_rank, reverse=True)
 
-        is_logged = "auth" in st.session_state
-        if is_logged or st.session_state.usage_count == 0:
+        # สมาชิก หรือ Admin หรือใช้งานครั้งแรก -> ใช้รุ่นใหม่ล่าสุด
+        if "auth" in st.session_state or st.session_state.usage_count == 0:
             target_list = models
         else:
             target_list = models[::-1]
@@ -138,7 +131,7 @@ def get_engine():
 if "engine" not in st.session_state:
     st.session_state.engine, st.session_state.status = get_engine()
 
-# --- 3. HEADER & NAV ---
+# --- 3. HEADER & NAVIGATION ---
 st.markdown(f'<div class="top-nav"><div style="display:flex;align-items:center;"><div class="status-dot"></div><span class="status-text">{st.session_state.status}</span></div></div>', unsafe_allow_html=True)
 
 nav_c1, nav_c2, nav_c3 = st.columns([9.2, 0.4, 0.4])
@@ -148,15 +141,22 @@ with nav_c2:
         st.rerun()
 with nav_c3:
     with st.popover("👤"):
+        # ข้อ 6: กู้คืนเมนูเครื่องมือใน Popover
         if "auth" in st.session_state:
             st.markdown(f"**คุณ {st.session_state['user_info'].get('name')}**")
+            st.divider()
+            st.caption("TOOLS")
+            st.button("ถอดแบบประเมินวัสดุ (Smart BOQ) [Soon]", use_container_width=True, disabled=True)
+            st.button("เช็คราคาวัสดุ 5 ห้างหลัก [Soon]", use_container_width=True, disabled=True)
+            st.button("แจ้งเตือนสภาพอากาศคิวเทปูน [Soon]", use_container_width=True, disabled=True)
+            st.divider()
             if st.button("ออกจากระบบ", type="primary", use_container_width=True):
                 del st.session_state["auth"]
                 st.session_state.chat_history = []
                 st.rerun()
         else:
             st.markdown("**GUEST**")
-            if st.button("เข้าสู่ระบบ", use_container_width=True): trigger_login()
+            if st.button("เข้าสู่ระบบ", use_container_width=True): trigger_login_page()
 
 # --- 4. MAIN INTERFACE ---
 st.markdown("<div class='main-title'>BHOON KHARN AI</div>", unsafe_allow_html=True)
@@ -177,22 +177,22 @@ with c2:
     if site: st.image(site)
 
 if st.button("RUN ANALYSIS / เริ่มการวิเคราะห์", use_container_width=True, type="primary"):
-    # แก้ไขข้อ 4: ตรวจสอบสถานะล็อกอินก่อนจำนวนการใช้งาน
+    # ตรวจสิทธิ์: ถ้าล็อกอินแล้วให้ผ่านเสมอ / ถ้ายังไม่ล็อกอินให้ผ่านแค่ครั้งแรก
     if "auth" not in st.session_state and st.session_state.usage_count >= 1:
-        trigger_login()
+        trigger_login_page()
     elif bp or site:
         with st.spinner("AI กำลังวิเคราะห์..."):
             try:
-                # แก้ไขข้อ 2, 3: แยกหมวดงานถัดไป และบังคับวัสดุ 5-7 อย่าง
+                # ข้อ 3, 5: บังคับส่งรายละเอียดแยกเป็นข้อย่อย และวัสดุ 5-7 อย่าง
                 prompt = """วิเคราะห์ภาพเทียบกันและตอบเป็น JSON ภาษาไทย: 
                 {
                     "analysis":[], "risk":[], "checklist":[], "standard":[], 
                     "owner_guide":{"must_know":[], "self_check_manual":[], "special_advice":[]}, 
-                    "current_task": ["หัวข้องานที่กำลังทำอยู่ตอนนี้"], 
-                    "next_task_from_this": ["หัวข้องานที่จะเกิดขึ้นถัดจากงานนี้"],
+                    "current_task": ["ข้อย่อยงานที่ 1", "ข้อย่อยงานที่ 2", "ข้อย่อยงานที่ 3"], 
+                    "next_task_from_this": ["ข้อย่อยงานถัดไป 1", "ข้อย่อยงานถัดไป 2", "ข้อย่อยงานถัดไป 3"],
                     "smart_materials":[{"name":"ชื่อวัสดุ", "unit_price":"฿..."}]
                 } 
-                ใน smart_materials ต้องส่งมาอย่างน้อย 5-7 รายการ"""
+                ใน smart_materials ต้องส่งมาอย่างน้อย 5-7 รายการ และงานต้องเป็นรายการย่อย 3-5 ข้อเสมอ"""
                 img_inp = Image.open(site) if site else Image.open(bp)
                 res = st.session_state.engine.generate_content([prompt, img_inp], generation_config={"response_mime_type": "application/json"})
                 st.session_state.json_data = json.loads(res.text)
@@ -232,37 +232,42 @@ if st.session_state.json_data:
             st.markdown("**💡 คำแนะนำเพิ่มเติม:**")
             st.info("\n".join(g["special_advice"]))
 
-    # แก้ไขข้อ 2: แยกหมวดงานปัจจุบันและงานถัดไป
+    # ข้อ 5: แสดงรายการย่อยงานปัจจุบันและงานถัดไป
     if "current_task" in d:
         st.markdown("<div class='section-header'>🏗️ งานปัจจุบัน</div>", unsafe_allow_html=True)
-        for i in d["current_task"]: st.markdown(f"<div class='owner-box'><b>{i}</b></div>", unsafe_allow_html=True)
+        st.markdown("<ul class='content-list'>" + "".join([f"<li><b>{i}</b></li>" for i in d["current_task"]]) + "</ul>", unsafe_allow_html=True)
     
     if "next_task_from_this" in d:
         st.markdown("<div class='section-header'>🏗️ งานถัดไปจากงานนี้</div>", unsafe_allow_html=True)
-        for i in d["next_task_from_this"]: st.markdown(f"<div class='owner-box'><b>{i}</b></div>", unsafe_allow_html=True)
+        st.markdown("<ul class='content-list'>" + "".join([f"<li><b>{i}</b></li>" for i in d["next_task_from_this"]]) + "</ul>", unsafe_allow_html=True)
 
-    # แก้ไขข้อ 3: วัสดุ 5-7 รายการ
+    # ข้อ 4: แสดงราคาวัสดุแบบซ้าย-ขวา
     if "smart_materials" in d:
         st.markdown("<div class='section-header'>🗓️ รายการวัสดุและประมาณการราคา</div>", unsafe_allow_html=True)
-        for item in d["smart_materials"]:
+        for item in d["smart_materials"][:7]:
             url = f"https://www.google.com/search?q={item['name']}+ราคา"
-            st.markdown(f"<div class='mat-item'><a href='{url}' target='_blank' class='mat-link'>{item['name']}</a> <span class='mat-price'>{item.get('unit_price','')}</span></div>", unsafe_allow_html=True)
+            st.markdown(f"""
+                <div class='mat-item'>
+                    <a href='{url}' target='_blank' class='mat-link'>{item['name']}</a>
+                    <span class='mat-price'>{item.get('unit_price','')}</span>
+                </div>
+            """, unsafe_allow_html=True)
 
-    # --- 6. AI CHAT ---
+    # --- 6. AI CHAT (จัดวางเหนือ Footer) ---
     st.divider()
     st.markdown("<div class='section-header'>💬 ปรึกษา AI เพิ่มเติม</div>", unsafe_allow_html=True)
     for msg in st.session_state.chat_history:
         with st.chat_message(msg["role"]): st.markdown(msg["content"])
 
-    if prompt_chat := st.chat_input("พิมพ์คำถามของคุณ..."):
-        if "auth" not in st.session_state:
-            trigger_login()
+    if prompt_chat := st.chat_input("พิมพ์ข้อความของคุณที่นี่..."):
+        if "auth" not in st.session_state and st.session_state.usage_count >= 1:
+            trigger_login_page()
         else:
             st.session_state.chat_history.append({"role": "user", "content": prompt_chat})
             with st.chat_message("user"): st.markdown(prompt_chat)
             with st.chat_message("assistant"):
                 chat_engine, _ = get_engine()
-                full_ctx = f"จากผลวิเคราะห์: {json.dumps(st.session_state.json_data)} \n\nคำถาม: {prompt_chat}"
+                full_ctx = f"ข้อมูลการวิเคราะห์: {json.dumps(st.session_state.json_data)} \n\nผู้ใช้ถาม: {prompt_chat}"
                 response = chat_engine.generate_content(full_ctx)
                 st.markdown(response.text)
                 st.session_state.chat_history.append({"role": "assistant", "content": response.text})
@@ -275,7 +280,7 @@ st.markdown(f"""
     </div>
     <div style='font-size:0.7rem; color:#666; max-width:800px; margin:15px auto; line-height:1.5;'>
         <b>หมายเหตุ:</b> ระบบ AI ให้คำแนะนำเบื้องต้นเท่านั้น ไม่สามารถแทนที่การตรวจสอบโดยวิศวกรวิชาชีพได้ 
-        กรุณาปรึกษาผู้เชี่ยวชาญก่อนดำเนินการใดๆ | Version 2.2 Final 1.2
+        กรุณาปรึกษาผู้เชี่ยวชาญก่อนดำเนินการใดๆ | Version 2.3 Final 1.3
     </div>
 </div>
 """, unsafe_allow_html=True)
