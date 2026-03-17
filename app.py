@@ -1,3 +1,11 @@
+import streamlit as st
+import streamlit.components.v1 as components
+
+# ตั้งค่าหน้ากระดาษให้เต็มจอ
+st.set_page_config(layout="wide", page_title="BHOON KHARN AI")
+
+# รวมร่างโค้ด HTML/JS (Final 2) เข้ามาในตัวแปร html_code
+html_code = """
 <!DOCTYPE html>
 <html lang="th">
 <head>
@@ -7,13 +15,12 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Kanit', sans-serif; background-color: #0f172a; color: white; }
+        body { font-family: 'Kanit', sans-serif; background-color: #0f172a; color: white; margin: 0; padding: 0; }
         .glass-card { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
         .gradient-text { background: linear-gradient(90deg, #fbbf24, #f59e0b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
     </style>
 </head>
 <body class="min-h-screen pb-10">
-
     <div id="login-section" class="flex flex-col items-center justify-center min-h-screen">
         <div class="glass-card p-8 rounded-2xl shadow-2xl w-full max-w-md text-center">
             <h1 class="text-4xl font-bold gradient-text mb-2">BHOON KHARN AI</h1>
@@ -29,7 +36,7 @@
         <div class="text-center mb-10">
             <h1 class="text-5xl font-bold gradient-text mb-1">BHOON KHARN AI</h1>
             <p class="text-xl text-slate-300">Construction Inspection Intelligence</p>
-            </div>
+        </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div class="space-y-6">
@@ -109,7 +116,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-        // กุญแจใหม่ที่คุณเตรียมมา
         const firebaseConfig = {
             apiKey: "AIzaSyDHSZ6VGPTzku5WP-GSEP4tNicqvDbFIYg",
             authDomain: "gen-lang-client-0559819500.firebaseapp.com",
@@ -129,20 +135,13 @@
         const loginSection = document.getElementById('login-section');
         const mainContent = document.getElementById('main-content');
 
-        // ฟังก์ชัน Login
         loginBtn.addEventListener('click', async () => {
-            try {
-                await signInWithPopup(auth, provider);
-            } catch (error) {
-                console.error("Login Error:", error);
-                alert("เกิดข้อผิดพลาดในการเข้าสู่ระบบ");
-            }
+            try { await signInWithPopup(auth, provider); } 
+            catch (error) { alert("เกิดข้อผิดพลาดในการเข้าสู่ระบบ"); }
         });
 
-        // ฟังก์ชัน Logout
         logoutBtn.addEventListener('click', () => signOut(auth));
 
-        // ตรวจสอบสถานะการ Login
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 loginSection.classList.add('hidden');
@@ -153,7 +152,6 @@
             }
         });
 
-        // ฟังก์ชันแสดงตัวอย่างภาพ (Logic เดิม)
         document.getElementById('imageInput').addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (file) {
@@ -168,3 +166,7 @@
     </script>
 </body>
 </html>
+"""
+
+# คำสั่งสำหรับรัน HTML บนหน้า Streamlit
+components.html(html_code, height=1200, scrolling=True)
