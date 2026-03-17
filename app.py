@@ -114,28 +114,27 @@ html_code = """
     </div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        // Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
 
-        // กุญแจของคุณ
-        const firebaseConfig = {
-            apiKey: "AIzaSyDHSZ6VGPTzku5WP-GSEP4tNicqvDbFIYg",
-            authDomain: "gen-lang-client-0559819500.firebaseapp.com",
-            projectId: "gen-lang-client-0559819500",
-            storageBucket: "gen-lang-client-0559819500.firebasestorage.app",
-            messagingSenderId: "358673361686",
-            appId: "1:358673361686:web:0d9d2e808287708b4e3e37",
-            measurementId: "G-HE6NF53JJG"
-        };
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyDHSZ6VGPTzku5WP-GSEP4tNicqvDbFIYg",
+  authDomain: "gen-lang-client-0559819500.firebaseapp.com",
+  projectId: "gen-lang-client-0559819500",
+  storageBucket: "gen-lang-client-0559819500.firebasestorage.app",
+  messagingSenderId: "358673361686",
+  appId: "1:358673361686:web:44662c193968817f4e3e37",
+  measurementId: "G-N90LYXXPPF"
+};
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const provider = new GoogleAuthProvider();
-
-        const loginBtn = document.getElementById('login-btn');
-        const logoutBtn = document.getElementById('logout-btn');
-        const loginSection = document.getElementById('login-section');
-        const mainContent = document.getElementById('main-content');
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
 
         // ฟังก์ชัน Login พร้อมระบบแจ้ง Error แบบละเอียด
         loginBtn.addEventListener('click', async () => {
