@@ -35,12 +35,11 @@ html_code = """
     </div>
 
     <script type="module">
-        // นำเข้าเครื่องมือจาก Firebase
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 
         // กุญแจ Firebase 
-        // *** หมายเหตุ: ถ้าคุณสร้างโปรเจกต์ใหม่ใน Firebase แล้ว ให้นำกุญแจชุดใหม่มาใส่แทนตรงนี้นะครับ ***
+        // *** หมายเหตุ: อย่าลืมเอากุญแจของโปรเจกต์ใหม่ที่คุณเพิ่งสร้างใน Firebase มาใส่แทนตรงนี้นะครับ ***
         const firebaseConfig = {
             apiKey: "AIzaSyDHSZ6VGPTzku5WP-GSEP4tNicqvDbFIYg",
             authDomain: "gen-lang-client-0559819500.firebaseapp.com",
@@ -51,19 +50,41 @@ html_code = """
             measurementId: "G-N90LYXXPPF"
         };
 
-        // เริ่มต้นระบบ Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const provider = new GoogleAuthProvider();
 
-        // เชื่อมปุ่มใน HTML กับคำสั่ง
         const loginBtn = document.getElementById('login-btn');
         const logoutBtn = document.getElementById('logout-btn');
         const loginSection = document.getElementById('login-section');
         const mainContent = document.getElementById('main-content');
 
-        // สั่งให้ปุ่ม Login ทำงาน
         loginBtn.addEventListener('click', async () => {
             try {
                 await signInWithPopup(auth, provider);
             } catch (error) {
+                alert("Login ไม่ผ่าน!\\nรหัส: " + error.code + "\\nข้อความ: " + error.message);
+                console.error("Firebase Auth Error:", error);
+            }
+        });
+
+        logoutBtn.addEventListener('click', () => {
+            signOut(auth);
+        });
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                loginSection.classList.add('hidden');
+                mainContent.classList.remove('hidden');
+            } else {
+                loginSection.classList.remove('hidden');
+                mainContent.classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
+"""
+
+# 3. สั่งให้ Streamlit แสดงผลหน้าเว็บ
+components.html(html_code, height=600, scrolling=True)
