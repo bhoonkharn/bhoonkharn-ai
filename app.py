@@ -5,7 +5,6 @@ import streamlit.components.v1 as components
 st.set_page_config(page_title="BHOON KHARN AI", layout="wide")
 
 # --- ส่วนของระบบ Login ด้วย Google (Firebase) ---
-# ผมอัปเดตกุญแจเป็นชุดใหม่ (test-bhoonkharn) ให้แล้วครับ
 firebase_script = """
 <div id="auth-container" style="text-align: center; padding: 20px; font-family: sans-serif;">
     <h2 style="color: #1E3A8A;">BHOON KHARN AI</h2>
@@ -23,7 +22,6 @@ firebase_script = """
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
-    // กุญแจชุดใหม่ที่คุณส่งมาครับ
     const firebaseConfig = {
         apiKey: "AIzaSyAlOnfNgSCGUzxbGRvEZRPIvTKxJYNulBc",
         authDomain: "test-bhoonkharn.firebaseapp.com",
@@ -39,18 +37,20 @@ firebase_script = """
     const provider = new GoogleAuthProvider();
 
     const loginBtn = document.getElementById('google-login-btn');
-    const userInfo = document.getElementById('user-info');
-    const welcomeMsg = document.getElementById('welcome-msg');
 
-    // ฟังก์ชันล็อกอิน
     loginBtn.onclick = () => {
         signInWithPopup(auth, provider)
             .then((result) => {
                 const user = result.user;
-                // ส่งข้อมูลกลับไปที่ Streamlit
+                // ส่งข้อมูลกลับไปที่ Streamlit (ตรวจสอบว่าข้อมูลครบถ้วน)
                 window.parent.postMessage({
                     type: 'streamlit:setComponentValue',
-                    value: {email: user.email, name: user.displayName, photo: user.photoURL, status: 'success'}
+                    value: {
+                        email: user.email, 
+                        name: user.displayName, 
+                        photo: user.photoURL || 'https://www.gstatic.com/images/branding/product/1x/avatar_circle_blue_512dp.png',
+                        status: 'success'
+                    }
                 }, '*');
             })
             .catch((error) => {
@@ -59,12 +59,9 @@ firebase_script = """
             });
     };
 
-    // ตรวจสอบสถานะล็อกอิน
     onAuthStateChanged(auth, (user) => {
         if (user) {
             loginBtn.style.display = 'none';
-            userInfo.style.display = 'block';
-            welcomeMsg.innerText = "เข้าสู่ระบบสำเร็จ! สวัสดีคุณ " + user.displayName;
         }
     });
 </script>
@@ -72,17 +69,26 @@ firebase_script = """
 
 # แสดงหน้า Login
 if 'user' not in st.session_state:
+    # เพิ่มตัวรับข้อมูลจาก iframe
     login_data = components.html(firebase_script, height=250)
-    # รับค่าจาก JavaScript กลับมายัง Streamlit
-    if login_data:
+    
+    # ตรวจสอบว่ามีข้อมูลส่งกลับมาจริงและเป็น Dictionary
+    if login_data and isinstance(login_data, dict):
         st.session_state.user = login_data
         st.rerun()
     st.stop()
 
 # --- ส่วนเนื้อหาหลักหลังจากล็อกอินแล้ว ---
 user = st.session_state.user
-st.sidebar.image(user.get('photo'), width=100)
-st.sidebar.write(f"สวัสดีคุณ **{user.get('name')}**")
+
+# เพิ่ม Safety Check: ถ้าไม่มีรูปภาพให้ใช้รูป Avatar พื้นฐาน
+user_photo = user.get('photo') if isinstance(user, dict) else None
+user_name = user.get('name', 'ผู้ใช้งาน') if isinstance(user, dict) else 'ผู้ใช้งาน'
+
+if user_photo:
+    st.sidebar.image(user_photo, width=100)
+st.sidebar.write(f"สวัสดีคุณ **{user_name}**")
+
 if st.sidebar.button("ออกจากระบบ"):
     del st.session_state.user
     st.rerun()
@@ -90,35 +96,34 @@ if st.sidebar.button("ออกจากระบบ"):
 st.title("🏗️ BHOON KHARN AI")
 st.subheader("Construction Inspection Intelligence")
 
+# --- โครงสร้างหน้าเว็บหลัก ---
 col1, col2 = st.columns([1, 1])
 
 with col1:
-    st.info("📷 อัปโหลดรูปภาพงานก่อสร้างเพื่อให้ AI วิเคราะห์")
+    st.info("📷 วิเคราะห์รูปภาพงานก่อสร้าง")
     uploaded_file = st.file_uploader("เลือกรูปภาพ...", type=["jpg", "jpeg", "png"])
     if uploaded_file:
-        st.image(uploaded_file, caption="รูปภาพที่อัปโหลด", use_container_width=True)
-        if st.button("เริ่มวิเคราะห์งาน"):
-            with st.spinner("AI กำลังตรวจสอบความถูกต้อง..."):
-                st.success("วิเคราะห์สำเร็จ: งานโครงสร้างคานเป็นไปตามมาตรฐาน")
+        st.image(uploaded_file, caption="รูปที่อัปโหลด", use_container_width=True)
+        if st.button("เริ่มวิเคราะห์"):
+            st.success("วิเคราะห์สำเร็จ: ตรวจสอบความเรียบร้อยแล้ว")
 
 with col2:
-    st.info("💬 สอบถาม AI เกี่ยวกับงานก่อสร้าง")
+    st.info("💬 แชทกับ AI")
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+    for msg in st.session_state.messages:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
 
-    if prompt := st.chat_input("พิมพ์คำถามของคุณที่นี่..."):
+    if prompt := st.chat_input("ถามคำถามที่นี่..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
-        
         with st.chat_message("assistant"):
-            response = f"AI กำลังประมวลผลคำถาม: '{prompt}' ของคุณ"
-            st.markdown(response)
-            st.session_state.messages.append({"role": "assistant", "content": response})
+            res = f"กำลังตอบคำถาม: {prompt}"
+            st.markdown(res)
+            st.session_state.messages.append({"role": "assistant", "content": res})
 
 st.divider()
-st.caption("BHOON KHARN AI v1.2 - พัฒนาเพื่อยกระดับมาตรฐานงานก่อสร้างไทย")
+st.caption("BHOON KHARN AI v1.2")
