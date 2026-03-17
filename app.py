@@ -8,7 +8,7 @@ import requests
 from datetime import datetime
 from streamlit_oauth import OAuth2Component
 
-# --- 1. CONFIG & STYLE (Minimalist & BK Theme) ---
+# --- 1. CONFIG & STYLE (แก้ไขข้อ 2, 3, 4) ---
 st.set_page_config(
     page_title="BHOON KHARN AI", 
     page_icon="logo.png", 
@@ -28,43 +28,47 @@ st.markdown("""
     .main-title { color: var(--bk-gold); text-align: center; font-weight: 700; font-size: 2.2rem; margin-top: 10px; }
     .story-text { text-align: center; color: #A09080; font-size: 0.85rem; margin-bottom: 30px; letter-spacing: 2px; }
     
-    /* ข้อ 1: ปุ่มเปลี่ยนภาษาเป็นรูปธง (Flag Icons) */
+    /* ข้อ 3: จัดวาง Online Status ไว้ขวาบนพร้อมจุดไฟสีเขียว */
+    .top-nav { position: fixed; top: 15px; right: 25px; display: flex; align-items: center; gap: 15px; z-index: 10000; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #28a745; box-shadow: 0 0 8px #28a745; margin-right: 8px; }
+    .status-text { font-size: 0.75rem; color: #B59473; font-weight: 700; letter-spacing: 1.5px; }
+    
+    /* ข้อ 2: ปุ่มเปลี่ยนภาษาธงชาติ (Centered & No Overflow) */
     div.stButton > button[key="lang_btn"] { 
-        min-width: 60px !important; width: 60px !important; 
+        min-width: 50px !important; width: 50px !important; 
         font-size: 1.2rem !important; padding: 0px !important; height: 35px !important; 
+        display: flex !important; justify-content: center !important; align-items: center !important;
         background: transparent !important; border: 1px solid rgba(181, 148, 115, 0.3) !important;
     }
 
-    /* ข้อ 2: หน้า Login แบบ Minimalist */
-    .login-container { 
-        max-width: 450px; margin: 80px auto; padding: 40px; 
+    /* ข้อ 4: หน้า Login แบบ Ultra-Minimal */
+    .login-box { 
+        max-width: 350px; margin: 100px auto; padding: 30px; 
         background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(181, 148, 115, 0.1); 
-        border-radius: 15px; text-align: center; 
+        border-radius: 12px; text-align: center; 
     }
-    .login-title { color: var(--bk-gold); font-size: 1.5rem; font-weight: 700; margin-bottom: 10px; }
-    .stTextInput > div > div > input { background-color: rgba(255,255,255,0.05) !important; color: white !important; border: 1px solid rgba(181,148,115,0.2) !important; }
+    .stTextInput > div > div > input { background-color: rgba(255,255,255,0.05) !important; color: white !important; }
 
     button[kind="primary"] { 
         background-color: rgba(181, 148, 115, 0.1) !important; 
         color: var(--bk-gold) !important; border: 1px solid var(--bk-gold) !important;
         border-radius: 6px !important; font-weight: 700 !important; width: 100% !important;
     }
-    button[kind="primary"]:hover { background-color: var(--bk-gold) !important; color: var(--bk-dark) !important; }
 
-    /* การจัดระเบียบราคาวัสดุซ้าย-ขวา (Flexbox) */
+    /* คงความสวยงามของรายการวัสดุ */
     .mat-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 10px 0; border-bottom: 1px solid rgba(181, 148, 115, 0.1); }
     .mat-link { color: var(--bk-gold); text-decoration: none; font-weight: 700; font-size: 1.05rem; }
     .mat-price { color: #28a745; font-size: 1rem; font-weight: 700; }
     
-    .section-header { color: var(--bk-gold); font-size: 1.15rem; font-weight: 700; margin-top: 30px; margin-bottom: 15px; border-bottom: 1px solid rgba(181, 148, 115, 0.3); padding-bottom: 10px; }
-    .content-list { line-height: 1.8; color: #E0E0E0; list-style-type: none; padding-left: 0; width: 100%; }
+    .section-header { color: var(--bk-gold); font-size: 1.15rem; font-weight: 700; margin-top: 30px; border-bottom: 1px solid rgba(181, 148, 115, 0.3); padding-bottom: 10px; }
+    .content-list { line-height: 1.8; color: #E0E0E0; list-style-type: none; padding-left: 0; }
     .content-list li { margin-bottom: 12px; padding-left: 20px; border-left: 3px solid var(--bk-gold); display: block; }
     .owner-box { border-left: 4px solid var(--bk-gold); padding: 5px 20px; background: rgba(181, 148, 115, 0.05); margin: 20px 0; border-radius: 0 10px 10px 0; }
     .footer-box { text-align: center; margin-top: 40px; padding: 30px 0; border-top: 1px solid rgba(181, 148, 115, 0.1); }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. INITIAL STATES & SECRETS ---
+# --- 2. INITIAL STATES & AUTH ---
 if "identified" not in st.session_state: st.session_state.identified = False
 if "user_info" not in st.session_state: st.session_state.user_info = {}
 if "chat_history" not in st.session_state: st.session_state.chat_history = []
@@ -84,20 +88,11 @@ def sync_to_sheet(name, contact, type_user):
         requests.post(GSHEET_URL, data=json.dumps(data))
     except: pass
 
-# --- 3. GATEKEEPER PAGE (ข้อ 2: Minimalist Login) ---
+# --- 3. GATEKEEPER (ข้อ 4: Minimal Login) ---
 if not st.session_state.identified:
-    st.markdown("""
-        <div class='login-container'>
-            <div class='login-title'>BHOON KHARN AI</div>
-            <p style='color:#A09080; font-size:0.9rem; margin-bottom:30px;'>Construction Intelligence Identification</p>
-    """, unsafe_allow_html=True)
+    st.markdown("<div class='login-box'><div style='color:var(--bk-gold); font-weight:700; font-size:1.3rem; margin-bottom:25px;'>BHOON KHARN AI</div>", unsafe_allow_html=True)
     
-    # แบ่งปุ่มแบบ Minimal
-    res = oauth2.authorize_button(
-        name="Continue with Google",
-        redirect_uri="https://bhoonkharn-ai.streamlit.app", 
-        scope="openid email profile", key="google_login"
-    )
+    res = oauth2.authorize_button(name="Login with Google", redirect_uri="https://bhoonkharn-ai.streamlit.app", scope="openid email profile", key="google_login")
     if res:
         payload = json.loads(base64.urlsafe_b64decode(res["token"]["id_token"].split(".")[1] + "==").decode('utf-8'))
         st.session_state.user_info = {"name": payload.get("name"), "contact": payload.get("email"), "tier": "Premium"}
@@ -105,29 +100,29 @@ if not st.session_state.identified:
         st.session_state.identified = True
         st.rerun()
     
-    st.markdown("<p style='margin:20px 0; color:#444;'>— OR —</p>", unsafe_allow_html=True)
+    st.markdown("<p style='margin:15px 0; color:#555; font-size:0.8rem;'>OR REGISTER</p>", unsafe_allow_html=True)
+    m_name = st.text_input("Name", placeholder="Your Name", label_visibility="collapsed")
+    m_contact = st.text_input("Contact", placeholder="Phone / Email", label_visibility="collapsed")
     
-    m_name = st.text_input("ชื่อ-นามสกุล", placeholder="Enter your name", label_visibility="collapsed")
-    m_contact = st.text_input("เบอร์โทรศัพท์", placeholder="Enter phone number", label_visibility="collapsed")
-    
-    if st.button("REGISTER & ENTER", use_container_width=True, type="primary"):
+    if st.button("ENTER SYSTEM", use_container_width=True, type="primary"):
         if m_name and m_contact:
             st.session_state.user_info = {"name": m_name, "contact": m_contact, "tier": "Standard"}
             sync_to_sheet(m_name, m_contact, "Manual Register")
             st.session_state.identified = True
             st.rerun()
-        else: st.warning("Please fill all info")
-    
     st.markdown("</div>", unsafe_allow_html=True)
     st.stop()
 
-# --- 4. MAIN APP ENGINE ---
+# --- 4. ENGINE (ข้อ 5: Model Tiering Logic) ---
 def get_engine():
     try:
         genai.configure(api_key=API_KEY)
         models = [m.name.replace("models/", "") for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
         models.sort(reverse=True)
-        target_list = models if st.session_state.user_info.get("tier") == "Premium" else models[::-1]
+        # ตรวจสอบ Tier: Premium หรือ Guest(ยังไม่ระบุ) ใช้รุ่นใหม่ | Standard ใช้รุ่นเก่า
+        tier = st.session_state.user_info.get("tier", "Guest")
+        target_list = models if tier in ["Premium", "Guest"] else models[::-1]
+        
         for m_name in target_list:
             try:
                 m = genai.GenerativeModel(m_name)
@@ -140,35 +135,29 @@ def get_engine():
 if "engine" not in st.session_state:
     st.session_state.engine, st.session_state.status = get_engine()
 
-# --- HEADER NAV ---
-st.markdown(f'<div class="top-nav"><div style="display:flex;align-items:center;"><div class="status-dot"></div><span class="status-text">{st.session_state.status}</span></div></div>', unsafe_allow_html=True)
+# --- 5. HEADER NAV (ข้อ 3: Online Status) ---
+st.markdown(f'<div class="top-nav"><div class="status-dot"></div><span class="status-text">{st.session_state.status}</span></div>', unsafe_allow_html=True)
+
 nav_c1, nav_c2, nav_c3 = st.columns([9.2, 0.4, 0.4])
 with nav_c2:
-    # ข้อ 1: ปุ่มเปลี่ยนภาษาเป็นธงชาติ
-    lang_label = "🇹🇭" if st.session_state.lang == "TH" else "🇺🇸"
-    if st.button(lang_label, key="lang_btn"):
+    lang_icon = "🇹🇭" if st.session_state.lang == "TH" else "🇺🇸"
+    if st.button(lang_icon, key="lang_btn"):
         st.session_state.lang = "EN" if st.session_state.lang == "TH" else "TH"
         st.rerun()
 with nav_c3:
     with st.popover("👤"):
         st.markdown(f"**คุณ {st.session_state.user_info.get('name')}**")
-        st.divider()
-        st.caption("TOOLS")
-        st.button("ถอดแบบประเมินวัสดุ (Smart BOQ) [Soon]", use_container_width=True, disabled=True)
-        st.button("เช็คราคาวัสดุ 5 ห้างหลัก [Soon]", use_container_width=True, disabled=True)
-        st.button("แจ้งเตือนสภาพอากาศ [Soon]", use_container_width=True, disabled=True)
+        st.caption(f"Tier: {st.session_state.user_info.get('tier')}")
         st.divider()
         if st.button("Logout", type="primary", use_container_width=True):
             st.session_state.identified = False
             st.rerun()
 
-# --- MAIN INTERFACE ---
+# --- 6. MAIN LAYOUT (ข้อ 1: Reset Order) ---
 st.markdown("<div class='main-title'>BHOON KHARN AI</div>", unsafe_allow_html=True)
 st.markdown("<div class='story-text'>Construction Inspection Intelligence</div>", unsafe_allow_html=True)
 
-# ข้อ 4: Anchor Point เพื่อล็อคตำแหน่งหน้าจอ
-results_anchor = st.container()
-
+# ส่วนอัปโหลด (ย้ายกลับมาด้านบน)
 c1, c2 = st.columns(2)
 with c1:
     st.markdown("<p style='text-align:center; color:var(--bk-gold); font-weight:700;'>📋 BLUEPRINT / แปลน</p>", unsafe_allow_html=True)
@@ -183,77 +172,57 @@ if st.button("RUN ANALYSIS / เริ่มการวิเคราะห์
     if bp or site:
         with st.spinner("AI กำลังวิเคราะห์..."):
             try:
-                prompt = """วิเคราะห์ภาพเทียบกันและตอบเป็น JSON ภาษาไทย: 
-                {
-                    "analysis":[], "risk":[], "checklist":[], "standard":[], 
-                    "owner_guide":{"must_know":[], "self_check_manual":[], "special_advice":[]}, 
-                    "current_task": ["ข้อย่อยที่ 1", "ข้อย่อยที่ 2", "ข้อย่อยที่ 3"], 
-                    "next_task_from_this": ["ข้อย่อยถัดไป 1", "ข้อย่อยถัดไป 2", "ข้อย่อยถัดไป 3"],
-                    "smart_materials":[{"name":"ชื่อวัสดุ", "unit_price":"฿..."}]
-                } 
-                วัสดุ 5-7 รายการ และงานต้องเป็นรายการย่อยเสมอ"""
+                prompt = 'วิเคราะห์ภาพเทียบกันและตอบเป็น JSON ภาษาไทย: {"analysis":[], "risk":[], "checklist":[], "standard":[], "owner_guide":{"must_know":[], "self_check_manual":[], "special_advice":[]}, "current_task":[], "next_task_from_this":[], "smart_materials":[{"name":"ชื่อวัสดุ", "unit_price":"฿..."}]}'
                 img_inp = Image.open(site) if site else Image.open(bp)
                 res = st.session_state.engine.generate_content([prompt, img_inp], generation_config={"response_mime_type": "application/json"})
                 st.session_state.json_data = json.loads(res.text)
-                # ข้อ 4: สั่งให้ UI กลับไปโฟกัสที่จุดเริ่มผลลัพธ์
                 st.rerun()
             except Exception as e: st.error(f"Error: {e}")
     else: st.warning("Please upload photo")
 
-# --- 5. RESULTS DISPLAY ---
+# --- 7. RESULTS ---
 if st.session_state.json_data:
-    with results_anchor: # ข้อ 4: แสดงผลใน Anchor เพื่อคุม Scroll
-        d = st.session_state.json_data
-        st.divider()
-        def render_sec(title, key):
-            if key in d:
-                st.markdown(f"<div class='section-header'>{title}</div>", unsafe_allow_html=True)
-                html = "<ul class='content-list'>" + "".join([f"<li><b>{i}</b></li>" for i in d[key]]) + "</ul>"
-                st.markdown(html, unsafe_allow_html=True)
+    d = st.session_state.json_data
+    st.divider()
+    def render_sec(title, key):
+        if key in d and d[key]:
+            st.markdown(f"<div class='section-header'>{title}</div>", unsafe_allow_html=True)
+            st.markdown("<ul class='content-list'>" + "".join([f"<li><b>{i}</b></li>" for i in d[key]]) + "</ul>", unsafe_allow_html=True)
 
-        render_sec("🔍 วิเคราะห์หน้างาน", "analysis")
-        render_sec("⚠️ จุดวิกฤตที่ต้องระวัง", "risk")
-        
-        # ข้อ 3: กู้คืนหมวดหมู่เจ้าของบ้าน (Owner Guide)
-        if "owner_guide" in d:
-            st.markdown("<div class='section-header'>🏠 สิ่งที่เจ้าของบ้านควรรู้และคู่มือตรวจสอบ</div>", unsafe_allow_html=True)
-            g = d["owner_guide"]
-            if g.get("must_know"):
-                st.markdown("**📌 ข้อมูลสำคัญที่ควรรู้:**")
-                st.markdown("<div class='owner-box'><ul class='content-list'>" + "".join([f"<li>{i}</li>" for i in g["must_know"]]) + "</ul></div>", unsafe_allow_html=True)
-            if g.get("self_check_manual"):
-                st.markdown("**✅ คู่มือตรวจสอบเบื้องต้น:**")
-                st.markdown("<ul class='content-list'>" + "".join([f"<li>{i}</li>" for i in g["self_check_manual"]]) + "</ul>", unsafe_allow_html=True)
-            if g.get("special_advice"):
-                st.info("\n".join(g["special_advice"]))
+    render_sec("🔍 วิเคราะห์หน้างาน", "analysis")
+    render_sec("⚠️ จุดวิกฤตที่ต้องระวัง", "risk")
+    
+    if "owner_guide" in d:
+        st.markdown("<div class='section-header'>🏠 สิ่งที่เจ้าของบ้านควรรู้และคู่มือตรวจสอบ</div>", unsafe_allow_html=True)
+        g = d["owner_guide"]
+        if g.get("must_know"):
+            st.markdown("**📌 ข้อมูลสำคัญที่ควรรู้:**")
+            st.markdown("<div class='owner-box'><ul class='content-list'>" + "".join([f"<li>{i}</li>" for i in g["must_know"]]) + "</ul></div>", unsafe_allow_html=True)
+        if g.get("self_check_manual"):
+            st.markdown("**✅ คู่มือตรวจสอบเบื้องต้น:**")
+            st.markdown("<ul class='content-list'>" + "".join([f"<li>{i}</li>" for i in g["self_check_manual"]]) + "</ul>", unsafe_allow_html=True)
 
-        if "current_task" in d:
-            st.markdown("<div class='section-header'>🏗️ งานปัจจุบัน</div>", unsafe_allow_html=True)
-            st.markdown("<ul class='content-list'>" + "".join([f"<li><b>{i}</b></li>" for i in d["current_task"]]) + "</ul>", unsafe_allow_html=True)
-        
-        if "next_task_from_this" in d:
-            st.markdown("<div class='section-header'>🏗️ งานถัดไปจากงานนี้</div>", unsafe_allow_html=True)
-            st.markdown("<ul class='content-list'>" + "".join([f"<li><b>{i}</b></li>" for i in d["next_task_from_this"]]) + "</ul>", unsafe_allow_html=True)
+    render_sec("🏗️ งานปัจจุบัน", "current_task")
+    render_sec("🏗️ งานถัดไปจากงานนี้", "next_task_from_this")
 
-        if "smart_materials" in d:
-            st.markdown("<div class='section-header'>🗓️ รายการวัสดุและประมาณการราคา</div>", unsafe_allow_html=True)
-            for item in d["smart_materials"][:7]:
-                st.markdown(f"<div class='mat-item'><a href='https://www.google.com/search?q={item['name']}+ราคา' target='_blank' class='mat-link'>{item['name']}</a><span class='mat-price'>{item.get('unit_price','')}</span></div>", unsafe_allow_html=True)
+    if "smart_materials" in d:
+        st.markdown("<div class='section-header'>🗓️ รายการวัสดุและประมาณการราคา</div>", unsafe_allow_html=True)
+        for item in d["smart_materials"][:7]:
+            st.markdown(f"<div class='mat-item'><a href='https://www.google.com/search?q={item['name']}+ราคา' target='_blank' class='mat-link'>{item['name']}</a><span class='mat-price'>{item.get('unit_price','')}</span></div>", unsafe_allow_html=True)
 
-        # AI CHAT
-        st.divider()
-        st.markdown("<div class='section-header'>💬 ปรึกษา AI เพิ่มเติม</div>", unsafe_allow_html=True)
-        for msg in st.session_state.chat_history:
-            with st.chat_message(msg["role"]): st.markdown(msg["content"])
+    # AI CHAT
+    st.divider()
+    st.markdown("<div class='section-header'>💬 ปรึกษา AI เพิ่มเติม</div>", unsafe_allow_html=True)
+    for msg in st.session_state.chat_history:
+        with st.chat_message(msg["role"]): st.markdown(msg["content"])
 
-        if prompt_chat := st.chat_input("Ask AI..."):
-            st.session_state.chat_history.append({"role": "user", "content": prompt_chat})
-            with st.chat_message("user"): st.markdown(prompt_chat)
-            with st.chat_message("assistant"):
-                ctx = f"Data: {json.dumps(st.session_state.json_data)} \nQ: {prompt_chat}"
-                response = st.session_state.engine.generate_content(ctx)
-                st.markdown(response.text)
-                st.session_state.chat_history.append({"role": "assistant", "content": response.text})
+    if prompt_chat := st.chat_input("Ask AI..."):
+        st.session_state.chat_history.append({"role": "user", "content": prompt_chat})
+        with st.chat_message("user"): st.markdown(prompt_chat)
+        with st.chat_message("assistant"):
+            response = st.session_state.engine.generate_content(f"Data: {json.dumps(st.session_state.json_data)} \nQ: {prompt_chat}")
+            st.markdown(response.text)
+            st.session_state.chat_history.append({"role": "assistant", "content": response.text})
 
 # --- FOOTER ---
 st.markdown(f"""
@@ -261,9 +230,8 @@ st.markdown(f"""
     <div style='color:var(--bk-gold); font-weight:700; font-size:1.1rem;'>
         BHOON KHARN | 088-777-6566 | Line ID: bhoonkharn
     </div>
-    <div style='font-size:0.7rem; color:#666; max-width:800px; margin:15px auto; line-height:1.5;'>
-        <b>หมายเหตุ:</b> ระบบ AI ให้คำแนะนำเบื้องต้นเท่านั้น ไม่สามารถแทนที่การตรวจสอบโดยวิศวกรวิชาชีพได้ 
-        กรุณาปรึกษาผู้เชี่ยวชาญก่อนดำเนินการใดๆ | Version final_1.5
+    <div style='font-size:0.7rem; color:#666; max-width:800px; margin:15px auto;'>
+        <b>หมายเหตุ:</b> ระบบ AI ให้คำแนะนำเบื้องต้นเท่านั้น ไม่สามารถแทนที่การตรวจสอบโดยวิศวกรวิชาชีพได้ | Version final_1.5.1
     </div>
 </div>
 """, unsafe_allow_html=True)
