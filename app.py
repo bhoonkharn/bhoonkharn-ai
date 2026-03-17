@@ -4,7 +4,7 @@ import streamlit.components.v1 as components
 # ตั้งค่าหน้ากระดาษ
 st.set_page_config(page_title="BHOON KHARN AI", layout="wide")
 
-# --- ส่วนของระบบ Login ด้วย Google (Firebase) ---
+# --- ระบบ Login แบบ Redirect (แก้ปัญหา Domain Error ปี 2026) ---
 firebase_script = """
 <div id="auth-container" style="text-align: center; padding: 20px; font-family: sans-serif;">
     <h2 style="color: #1E3A8A;">BHOON KHARN AI</h2>
@@ -13,14 +13,11 @@ firebase_script = """
         <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width: 18px; margin-right: 10px;">
         เข้าสู่ระบบด้วย Google
     </button>
-    <div id="user-info" style="display:none; margin-top: 20px;">
-        <p id="welcome-msg" style="color: green; font-weight: bold;"></p>
-    </div>
 </div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyAlOnfNgSCGUzxbGRvEZRPIvTKxJYNulBc",
@@ -38,55 +35,57 @@ firebase_script = """
 
     const loginBtn = document.getElementById('google-login-btn');
 
-    loginBtn.onclick = () => {
-        signInWithPopup(auth, provider)
-            .then((result) => {
-                const user = result.user;
-                // ส่งข้อมูลกลับไปที่ Streamlit (ตรวจสอบว่าข้อมูลครบถ้วน)
-                window.parent.postMessage({
-                    type: 'streamlit:setComponentValue',
-                    value: {
-                        email: user.email, 
-                        name: user.displayName, 
-                        photo: user.photoURL || 'https://www.gstatic.com/images/branding/product/1x/avatar_circle_blue_512dp.png',
-                        status: 'success'
-                    }
-                }, '*');
-            })
-            .catch((error) => {
-                console.error("Login Error:", error.code);
-                alert("เกิดข้อผิดพลาด: " + error.message);
-            });
-    };
+    // ตรวจสอบผลลัพธ์หลังจากเด้งกลับมาจากการล็อกอิน
+    getRedirectResult(auth).then((result) => {
+        if (result && result.user) {
+            sendToStreamlit(result.user);
+        }
+    }).catch((error) => {
+        console.error("Redirect Error:", error.message);
+    });
 
+    // ตรวจสอบสถานะการล็อกอินปัจจุบัน
     onAuthStateChanged(auth, (user) => {
         if (user) {
-            loginBtn.style.display = 'none';
+            sendToStreamlit(user);
         }
     });
+
+    function sendToStreamlit(user) {
+        window.parent.postMessage({
+            type: 'streamlit:setComponentValue',
+            value: {
+                email: user.email,
+                name: user.displayName,
+                photo: user.photoURL || 'https://www.gstatic.com/images/branding/product/1x/avatar_circle_blue_512dp.png',
+                status: 'success'
+            }
+        }, '*');
+    }
+
+    // เมื่อกดปุ่ม ให้เปลี่ยนหน้าไปที่หน้าล็อกอินของ Google
+    loginBtn.onclick = () => {
+        signInWithRedirect(auth, provider);
+    };
 </script>
 """
 
 # แสดงหน้า Login
 if 'user' not in st.session_state:
-    # เพิ่มตัวรับข้อมูลจาก iframe
     login_data = components.html(firebase_script, height=250)
     
-    # ตรวจสอบว่ามีข้อมูลส่งกลับมาจริงและเป็น Dictionary
-    if login_data and isinstance(login_data, dict):
+    # ตรวจสอบว่าได้รับข้อมูลจาก JavaScript หรือไม่
+    if login_data and isinstance(login_data, dict) and login_data.get('status') == 'success':
         st.session_state.user = login_data
         st.rerun()
     st.stop()
 
-# --- ส่วนเนื้อหาหลักหลังจากล็อกอินแล้ว ---
+# --- ส่วนเนื้อหาหลักเมื่อ Login สำเร็จ ---
 user = st.session_state.user
+user_name = user.get('name', 'ผู้ใช้งาน')
+user_photo = user.get('photo')
 
-# เพิ่ม Safety Check: ถ้าไม่มีรูปภาพให้ใช้รูป Avatar พื้นฐาน
-user_photo = user.get('photo') if isinstance(user, dict) else None
-user_name = user.get('name', 'ผู้ใช้งาน') if isinstance(user, dict) else 'ผู้ใช้งาน'
-
-if user_photo:
-    st.sidebar.image(user_photo, width=100)
+st.sidebar.image(user_photo, width=80)
 st.sidebar.write(f"สวัสดีคุณ **{user_name}**")
 
 if st.sidebar.button("ออกจากระบบ"):
@@ -96,7 +95,7 @@ if st.sidebar.button("ออกจากระบบ"):
 st.title("🏗️ BHOON KHARN AI")
 st.subheader("Construction Inspection Intelligence")
 
-# --- โครงสร้างหน้าเว็บหลัก ---
+# แบ่งหน้าจอ
 col1, col2 = st.columns([1, 1])
 
 with col1:
@@ -121,9 +120,9 @@ with col2:
         with st.chat_message("user"):
             st.markdown(prompt)
         with st.chat_message("assistant"):
-            res = f"กำลังตอบคำถาม: {prompt}"
+            res = f"AI กำลังวิเคราะห์คำถาม: {prompt}"
             st.markdown(res)
             st.session_state.messages.append({"role": "assistant", "content": res})
 
 st.divider()
-st.caption("BHOON KHARN AI v1.2")
+st.caption("BHOON KHARN AI v1.2.1 - Enhanced Security Mode")
