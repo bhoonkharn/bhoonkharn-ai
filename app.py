@@ -6,7 +6,7 @@ import re
 import base64
 from streamlit_oauth import OAuth2Component
 
-# --- 1. CONFIG & STYLE (ปรับปรุงตามข้อ 2, 3, 5, 6) ---
+# --- 1. CONFIG & STYLE (ปรับปรุง CSS ตามข้อ 2 และ 6) ---
 st.set_page_config(
     page_title="BHOON KHARN AI", 
     page_icon="logo.png", 
@@ -20,7 +20,6 @@ st.markdown("""
     :root { --bk-gold: #B59473; --bk-brown: #4A3F35; --bk-dark: #1E1A17; }
     
     html, body, [class*="st-app"] { background-color: var(--bk-dark); color: #F5F5F5; font-family: 'Sarabun', sans-serif; }
-    
     [data-testid="stSidebar"], [data-testid="collapsedControl"] { display: none !important; }
     #MainMenu, footer, header { visibility: hidden; }
 
@@ -28,8 +27,6 @@ st.markdown("""
     .story-text { text-align: center; color: #A09080; font-size: 0.85rem; margin-bottom: 30px; letter-spacing: 2px; }
     
     .section-header { color: var(--bk-gold); font-size: 1.15rem; font-weight: 700; margin-top: 30px; margin-bottom: 15px; border-bottom: 1px solid rgba(181, 148, 115, 0.3); padding-bottom: 10px; }
-    
-    /* ข้อ 2: กรอบพื้นหลังสำหรับ Browse File */
     .upload-box { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(181, 148, 115, 0.2); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
 
     .content-list { line-height: 1.8; color: #E0E0E0; list-style-type: none; padding-left: 0; margin-bottom: 25px; display: block; width: 100%; }
@@ -39,7 +36,9 @@ st.markdown("""
     .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #28a745; box-shadow: 0 0 8px #28a745; margin-right: 8px; }
     .status-text { font-size: 0.75rem; color: #B59473; font-weight: 700; letter-spacing: 1.5px; }
     
-    /* ปุ่มวิเคราะห์สีทองพรีเมียม (BK-GOLD) */
+    /* ข้อ 2: แก้ปุ่มเปลี่ยนภาษาให้เป็นบรรทัดเดียว */
+    div.stButton > button[key="lang_btn"] { min-width: 65px !important; width: 65px !important; padding: 0px !important; }
+
     button[kind="primary"] { 
         background-color: rgba(181, 148, 115, 0.1) !important; 
         color: var(--bk-gold) !important; 
@@ -51,7 +50,6 @@ st.markdown("""
     }
     button[kind="primary"]:hover { background-color: var(--bk-gold) !important; color: var(--bk-dark) !important; }
 
-    /* ข้อ 4: พรีวิววัสดุและราคา */
     .mat-item { margin-bottom: 20px; }
     .mat-link { color: var(--bk-gold); text-decoration: none; font-weight: 700; font-size: 1.1rem; }
     .mat-price { color: #28a745; font-size: 0.9rem; font-weight: 700; margin-left: 10px; }
@@ -59,23 +57,29 @@ st.markdown("""
     
     .owner-box { border-left: 4px solid var(--bk-gold); padding: 5px 20px; background: rgba(181, 148, 115, 0.05); margin: 20px 0; border-radius: 0 10px 10px 0; width: 100%; }
     
-    /* ข้อ 5: Footer & Contact */
+    /* Footer & Disclaimer (ข้อ 4, 5) */
     .footer-box { text-align: center; margin-top: 60px; padding: 40px 0; border-top: 1px solid rgba(181, 148, 115, 0.1); }
     .disclaimer { font-size: 0.7rem; color: #666; max-width: 700px; margin: 15px auto; line-height: 1.5; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. ระบบ LOGIN GOOGLE (ข้อ 1) ---
+# --- Initial Session States ---
+if "usage_count" not in st.session_state: st.session_state.usage_count = 0
+if "chat_history" not in st.session_state: st.session_state.chat_history = []
+if "lang" not in st.session_state: st.session_state.lang = "TH"
+if "json_data" not in st.session_state: st.session_state.json_data = {}
+
+# --- 2. ระบบ LOGIN GOOGLE (ข้อ 1: Freemium Logic) ---
 CLIENT_ID = "358673361686-q6nuqn6tqefffcrm9krtcv1u11rmvt8j.apps.googleusercontent.com"
 CLIENT_SECRET = st.secrets.get("GOOGLE_CLIENT_SECRET", "")
 ADMIN_EMAIL = "bhoonkharn@gmail.com"
 
 oauth2 = OAuth2Component(CLIENT_ID, CLIENT_SECRET, "https://accounts.google.com/o/oauth2/v2/auth", "https://oauth2.googleapis.com/token", "https://oauth2.googleapis.com/token")
 
-if "auth" not in st.session_state:
-    st.markdown("<br><br><br><br><br>", unsafe_allow_html=True)
+# ฟังก์ชันแสดงหน้า Login
+def show_login_page():
     st.markdown("<div class='main-title'>BHOON KHARN AI</div>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align:center; color:#A09080; letter-spacing:3px;'>PRIVATE SYSTEM ACCESS</p>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center; color:#A09080; letter-spacing:3px;'>กรุณาเข้าสู่ระบบเพื่อใช้งานต่อ</p>", unsafe_allow_html=True)
     l_c1, l_c2, l_c3 = st.columns([1.2, 1, 1.2])
     with l_c2:
         res = oauth2.authorize_button(
@@ -91,8 +95,12 @@ if "auth" not in st.session_state:
         st.rerun()
     st.stop()
 
-# ถอดรหัส User Info (สิทธิ์เข้าใช้งาน)
-if "user_info" not in st.session_state:
+# เงื่อนไข Freemium: ถ้าใช้ไปแล้ว 1 ครั้ง และยังไม่ล็อกอิน ให้แสดงหน้าล็อกอิน
+if st.session_state.usage_count >= 1 and "auth" not in st.session_state:
+    show_login_page()
+
+# ถอดรหัส User Info
+if "auth" in st.session_state and "user_info" not in st.session_state:
     try:
         payload = st.session_state["auth"]["id_token"].split(".")[1]
         payload += "=" * ((4 - len(payload) % 4) % 4)
@@ -100,41 +108,30 @@ if "user_info" not in st.session_state:
     except:
         st.session_state["user_info"] = {"email": "guest", "name": "Guest User"}
 
-# --- 3. ENGINE (Dynamic Model Hunter - Privilege Logic) ---
+# --- 3. ENGINE (Dynamic Model Hunter - Privilege & Token Control) ---
 API_KEY = st.secrets.get("GEMINI_API_KEY", "")
 
-def init_ai_engine():
+def init_ai_engine(is_chat=False):
     try:
         genai.configure(api_key=API_KEY)
-        raw_models = [m.name.replace("models/", "") for m in genai.list_models() if 'generateContent' in m.supported_generation_methods and 'gemini' in m.name.lower()]
+        is_logged_in = "auth" in st.session_state
         
-        def sort_logic(name):
-            v_match = re.search(r'(\d+\.\d+)', name)
-            v = float(v_match.group(1)) if v_match else (3.0 if 'gemini-3' in name else 1.0)
-            tier = 0 if 'flash' in name else (1 if 'pro' in name else 2)
-            return (v, -tier)
-        
-        raw_models.sort(key=sort_logic, reverse=True)
-        
-        # กฎสิทธิ์ผู้ใช้ (ข้อ 1)
-        email = st.session_state["user_info"].get("email", "")
-        if email == ADMIN_EMAIL or st.session_state.get("usage_count", 0) == 0:
-            target_list = raw_models # Admin/ครั้งแรก: รุ่นใหม่สุด
-        else:
-            target_list = raw_models[::-1] # User ทั่วไป: วนหารุ่นประหยัด
+        # สายฟรี (ยังไม่ Login) -> ใช้ Flash เสมอเพื่อประหยัด Token
+        if not is_logged_in:
+            return genai.GenerativeModel("gemini-1.5-flash"), "ONLINE (GUEST)"
 
-        for m_name in target_list:
+        # สายสมาชิก/Admin -> ค้นหาโมเดลที่ดีที่สุด
+        raw_models = [m.name.replace("models/", "") for m in genai.list_models() if 'generateContent' in m.supported_generation_methods and 'gemini' in m.name.lower()]
+        raw_models.sort(reverse=True) # เอาตัวใหม่ขึ้นก่อน
+        
+        for m_name in raw_models:
             try:
                 m = genai.GenerativeModel(m_name)
                 m.generate_content("test", generation_config={"max_output_tokens": 1})
                 return m, "ONLINE"
             except: continue
-        return None, "OFFLINE"
+        return genai.GenerativeModel("gemini-1.5-flash"), "ONLINE (STABLE)"
     except: return None, "OFFLINE"
-
-if "usage_count" not in st.session_state: st.session_state.usage_count = 0
-if "lang" not in st.session_state: st.session_state.lang = "TH"
-if "json_data" not in st.session_state: st.session_state.json_data = {}
 
 if "engine" not in st.session_state:
     st.session_state.engine, st.session_state.status = init_ai_engine()
@@ -149,19 +146,22 @@ with nav_c2:
         st.rerun()
 with nav_c3:
     with st.popover("👤"):
-        u_email = st.session_state["user_info"].get("email", "")
-        st.markdown(f"**คุณ {st.session_state['user_info'].get('name', 'USER')}**")
-        st.caption(f"{'ADMIN STATUS' if u_email == ADMIN_EMAIL else 'GENERAL ACCESS'}")
-        st.divider()
-        st.caption("TOOLS")
-        st.button("ถอดแบบประเมินวัสดุ [Soon]", use_container_width=True, disabled=True)
-        st.button("เช็คราคาวัสดุ 5 ห้าง [Soon]", use_container_width=True, disabled=True)
-        st.divider()
-        if st.button("SIGN OUT", type="primary", use_container_width=True):
-            del st.session_state["auth"]
-            st.rerun()
+        if "auth" in st.session_state:
+            u_email = st.session_state["user_info"].get("email", "")
+            st.markdown(f"**คุณ {st.session_state['user_info'].get('name', 'USER')}**")
+            st.caption(f"{'ADMIN STATUS' if u_email == ADMIN_EMAIL else 'MEMBER ACCESS'}")
+            st.divider()
+            if st.button("SIGN OUT", type="primary", use_container_width=True):
+                del st.session_state["auth"]
+                st.session_state.chat_history = [] # เคลียร์แชทเมื่อออก
+                st.rerun()
+        else:
+            st.markdown("**GUEST ACCESS**")
+            st.caption("ใช้งานได้จำกัด 1 ครั้งฟรี")
+            if st.button("LOGIN TO SAVE DATA", use_container_width=True):
+                show_login_page()
 
-# --- MAIN UI (ข้อ 2: ปรับกรอบ Upload) ---
+# --- MAIN UI ---
 st.markdown("<div class='main-title'>BHOON KHARN AI</div>", unsafe_allow_html=True)
 st.markdown("<div class='story-text'>Construction Inspection Intelligence</div>", unsafe_allow_html=True)
 
@@ -183,30 +183,22 @@ if st.button("RUN ANALYSIS / เริ่มการวิเคราะห์
     if bp or site:
         with st.spinner("AI กำลังวิเคราะห์..."):
             try:
-                # Prompt (ข้อ 3, 4, 6)
                 prompt = """วิเคราะห์ภาพเปรียบเทียบและตอบเป็น JSON ภาษาไทย: 
                 {
                     "analysis":[], "risk":[], "checklist":[], "standard":[], 
-                    "owner_guide":{
-                        "must_know": [], 
-                        "self_check_manual": [],
-                        "special_advice": []
-                    }, 
+                    "owner_guide":{ "must_know": [], "self_check_manual": [], "special_advice": [] }, 
                     "next_3_tasks": ["งาน 1", "งาน 2", "งาน 3"], 
-                    "smart_materials": [
-                        {"name": "ชื่อวัสดุ", "unit_price": "฿...", "preview": "สรุปสเปกสั้นๆ สำหรับพรีวิว"}
-                    ]
-                }
-                - ใน smart_materials ใส่มา 5-7 รายการครอบคลุมงานนี้และถัดไป
-                - ใน next_3_tasks ต้องมี 3 ข้อเสมอ"""
+                    "smart_materials": [{"name": "ชื่อวัสดุ", "unit_price": "฿...", "preview": "สรุปสเปกสั้นๆ"}]
+                }"""
                 img_inp = Image.open(site) if site else Image.open(bp)
                 res = st.session_state.engine.generate_content([prompt, img_inp], generation_config={"response_mime_type": "application/json"})
                 st.session_state.json_data = json.loads(res.text)
                 st.session_state.usage_count += 1
+                st.rerun() # Refresh เพื่ออัปเดตสถานะ Login หากจำเป็น
             except Exception as e: st.error(f"Analysis Error: {e}")
     else: st.warning("กรุณาอัปโหลดรูปภาพ")
 
-# --- RESULTS (ข้อ 3, 4, 6) ---
+# --- RESULTS DISPLAY ---
 if st.session_state.json_data:
     d = st.session_state.json_data
     st.divider()
@@ -224,7 +216,7 @@ if st.session_state.json_data:
     render_sec("📝 เทคนิคการตรวจงาน", "checklist")
     render_sec("🏗️ มาตรฐานวิศวกรรม", "standard")
     
-    # ข้อ 6: สิ่งที่เจ้าของบ้านควรรู้ (รวมหมวดย่อย)
+    # ข้อ 6: สิ่งที่เจ้าของบ้านควรรู้ (รวมหมวด)
     if "owner_guide" in d:
         st.markdown("<div class='section-header'>🏠 สิ่งที่เจ้าของบ้านควรรู้และคู่มือตรวจสอบ</div>", unsafe_allow_html=True)
         g = d["owner_guide"]
@@ -235,10 +227,10 @@ if st.session_state.json_data:
             st.markdown("**✅ คู่มือการตรวจสอบด้วยตัวเอง:**")
             st.markdown("<ul class='content-list'>" + "".join([f"<li>{i}</li>" for i in g["self_check_manual"]]) + "</ul>", unsafe_allow_html=True)
         if "special_advice" in g:
-            st.markdown("**💡 คำแนะนำพิเศษ:**")
+            st.markdown("**💡 คำแนะนำเพิ่มเติม:**")
             st.info("\n".join(g["special_advice"]))
 
-    # ข้อ 3: งานลำดับถัดไป (3 ข้อ)
+    # ข้อ 3: งานถัดไป (3 ขั้นตอน)
     if "next_3_tasks" in d:
         st.markdown("<div class='section-header'>🏗️ งานลำดับถัดไป (3 ขั้นตอนถัดไป)</div>", unsafe_allow_html=True)
         for i, task in enumerate(d["next_3_tasks"], 1):
@@ -257,15 +249,41 @@ if st.session_state.json_data:
             </div>
             """, unsafe_allow_html=True)
 
-# --- 5. FOOTER & CONTACT ---
+    # --- ข้อ 3: ระบบแชท AI (AI Chat) ---
+    st.divider()
+    st.markdown("<div class='section-header'>💬 สอบถาม AI เพิ่มเติมเกี่ยวกับผลวิเคราะห์นี้</div>", unsafe_allow_html=True)
+    
+    # แสดงประวัติแชท
+    for msg in st.session_state.chat_history:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+
+    if prompt_chat := st.chat_input("พิมพ์คำถามของคุณที่นี่..."):
+        # เช็คสิทธิ์ก่อนแชทครั้งที่ 2 (ตามกฎ Login)
+        if st.session_state.usage_count >= 1 and "auth" not in st.session_state:
+            show_login_page()
+            
+        st.session_state.chat_history.append({"role": "user", "content": prompt_chat})
+        with st.chat_message("user"):
+            st.markdown(prompt_chat)
+
+        with st.chat_message("assistant"):
+            chat_engine, _ = init_ai_engine(is_chat=True)
+            full_context = f"จากผลการวิเคราะห์งานก่อสร้าง: {json.dumps(st.session_state.json_data)} \n\nคำถามผู้ใช้: {prompt_chat}"
+            response = chat_engine.generate_content(full_context)
+            st.markdown(response.text)
+            st.session_state.chat_history.append({"role": "assistant", "content": response.text})
+
+# --- 4, 5. FOOTER (เพิ่ม LINE ID & Disclaimer) ---
 st.markdown(f"""
 <div class='footer-box'>
-    <div style='color:var(--bk-gold); font-weight:700; font-size:1.1rem;'>BHOON KHARN | 088-777-6566</div>
-    <div class='disclaimer'>
-        <b>หมายเหตุข้อจำกัดของ AI:</b> ระบบ BHOON KHARN AI เป็นเพียงเครื่องมือช่วยประมวลผลและให้คำแนะนำเบื้องต้นจากข้อมูลภาพถ่ายเท่านั้น 
-        ผลลัพธ์ที่ได้อาจมีความคลาดเคลื่อนตามคุณภาพของรูปภาพและสภาพแสง <u>ไม่สามารถนำไปใช้อ้างอิงทางกฎหมายหรือแทนที่การตรวจสอบโดยวิศวกรผู้เชี่ยวชาญหน้างานได้</u> 
-        กรุณาปรึกษาวิศวกรหรือผู้ควบคุมงานก่อนการตัดสินใจดำเนินการใดๆ
+    <div style='color:var(--bk-gold); font-weight:700; font-size:1.1rem;'>
+        BHOON KHARN | 088-777-6566 | Line ID: bhoonkharn
     </div>
-    <div style='color:#4A3F35; font-size:0.7rem; letter-spacing:2px; margin-top:20px;'>PRIVATE SYSTEM | VERSION 2.1</div>
+    <div class='disclaimer'>
+        <b>หมายเหตุข้อจำกัดของ AI:</b> ระบบ BHOON KHARN AI ให้คำแนะนำเบื้องต้นจากข้อมูลภาพถ่ายเท่านั้น 
+        ผลลัพธ์อาจมีความคลาดเคลื่อนตามคุณภาพรูปภาพ <u>ไม่สามารถแทนที่การตรวจสอบโดยวิศวกรวิชาชีพได้</u> 
+        กรุณาปรึกษาวิศวกรหรือผู้ควบคุมงานก่อนดำเนินการใดๆ
+    </div>
 </div>
 """, unsafe_allow_html=True)
