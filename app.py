@@ -114,28 +114,73 @@ html_code = """
     </div>
 
     <script type="module">
-  // Import the functions you need from the SDKs you need
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
-  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-analytics.js";
-  // TODO: Add SDKs for Firebase products that you want to use
-  // https://firebase.google.com/docs/web/setup#available-libraries
+        // 1. โหลด Firebase Core
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-analytics.js";
+        
+        // 2. โหลด Firebase Auth (ส่วนที่ลืมใส่)
+        import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 
-  // Your web app's Firebase configuration
-  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-  const firebaseConfig = {
-    apiKey: "AIzaSyDHSZ6VGPTzku5WP-GSEP4tNicqvDbFIYg",
-    authDomain: "gen-lang-client-0559819500.firebaseapp.com",
-    projectId: "gen-lang-client-0559819500",
-    storageBucket: "gen-lang-client-0559819500.firebasestorage.app",
-    messagingSenderId: "358673361686",
-    appId: "1:358673361686:web:44662c193968817f4e3e37",
-    measurementId: "G-N90LYXXPPF"
-  };
+        // 3. กุญแจ Firebase (อย่าลืม! เอาของโปรเจกต์ใหม่ที่คุณเพิ่งสร้างมาใส่แทนตรงนี้นะครับ)
+        const firebaseConfig = {
+            apiKey: "AIzaSyDHSZ6VGPTzku5WP-GSEP4tNicqvDbFIYg",
+            authDomain: "gen-lang-client-0559819500.firebaseapp.com",
+            projectId: "gen-lang-client-0559819500",
+            storageBucket: "gen-lang-client-0559819500.firebasestorage.app",
+            messagingSenderId: "358673361686",
+            appId: "1:358673361686:web:44662c193968817f4e3e37",
+            measurementId: "G-N90LYXXPPF"
+        };
 
-  // Initialize Firebase
-  const app = initializeApp(firebaseConfig);
-  const analytics = getAnalytics(app);
-</script>
+        // 4. เปิดใช้งานระบบ
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+        const auth = getAuth(app);
+        const provider = new GoogleAuthProvider();
+
+        // 5. ผูกตัวแปรกับหน้าเว็บ (ส่วนที่ลืมใส่)
+        const loginBtn = document.getElementById('login-btn');
+        const logoutBtn = document.getElementById('logout-btn');
+        const loginSection = document.getElementById('login-section');
+        const mainContent = document.getElementById('main-content');
+
+        // 6. ฟังก์ชัน Login พร้อมระบบแจ้ง Error แบบละเอียด
+        loginBtn.addEventListener('click', async () => {
+            try { 
+                await signInWithPopup(auth, provider); 
+            } catch (error) { 
+                alert("เกิดข้อผิดพลาด!\nCode: " + error.code + "\nMessage: " + error.message);
+                console.error(error);
+            }
+        });
+
+        // 7. ฟังก์ชัน Logout
+        logoutBtn.addEventListener('click', () => signOut(auth));
+
+        // 8. เช็คสถานะว่า Login หรือยัง
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                loginSection.classList.add('hidden');
+                mainContent.classList.remove('hidden');
+            } else {
+                loginSection.classList.remove('hidden');
+                mainContent.classList.add('hidden');
+            }
+        });
+
+        // 9. ระบบดูภาพตัวอย่าง
+        document.getElementById('imageInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    document.getElementById('imagePreview').src = event.target.result;
+                    document.getElementById('previewContainer').classList.remove('hidden');
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+    </script>
         // ฟังก์ชัน Login พร้อมระบบแจ้ง Error แบบละเอียด
         loginBtn.addEventListener('click', async () => {
             try { 
