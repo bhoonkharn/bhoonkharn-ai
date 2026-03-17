@@ -6,7 +6,7 @@ import re
 import base64
 from streamlit_oauth import OAuth2Component
 
-# --- 1. CONFIG & STYLE (ปรับตามข้อ 2 และ 3) ---
+# --- 1. CONFIG & STYLE (ปรับปรุงตามข้อ 1) ---
 st.set_page_config(
     page_title="BHOON KHARN AI", 
     page_icon="logo.png", 
@@ -24,10 +24,18 @@ st.markdown("""
     #MainMenu, footer, header { visibility: hidden; }
 
     .main-title { color: var(--bk-gold); text-align: center; font-weight: 700; font-size: 2.2rem; margin-top: 10px; }
-    /* ข้อ 3: ลบกล่องสี่เหลี่ยมใต้ชื่อออก ให้เหลือแค่ตัวหนังสือ */
-    .story-text { text-align: center; color: #A09080; font-size: 0.85rem; margin-bottom: 30px; letter-spacing: 2px; }
     
-    /* ข้อ 3: กรอบอัปโหลดไฟล์ให้สมส่วน */
+    /* ข้อ 1: ลบกล่องและพื้นหลังใต้ชื่อแอปออกให้หมด */
+    .story-text { 
+        text-align: center; 
+        color: #A09080; 
+        font-size: 0.85rem; 
+        margin-bottom: 30px; 
+        letter-spacing: 2px;
+        background: transparent !important;
+        border: none !important;
+    }
+    
     .upload-frame { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(181, 148, 115, 0.2); border-radius: 12px; padding: 25px; margin-bottom: 20px; }
     
     .section-header { color: var(--bk-gold); font-size: 1.15rem; font-weight: 700; margin-top: 30px; margin-bottom: 15px; border-bottom: 1px solid rgba(181, 148, 115, 0.3); padding-bottom: 10px; }
@@ -36,10 +44,8 @@ st.markdown("""
     
     .top-nav { position: fixed; top: 15px; right: 25px; display: flex; align-items: center; gap: 15px; z-index: 10000; }
     .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #28a745; box-shadow: 0 0 8px #28a745; margin-right: 8px; }
-    /* ข้อ 3: ตัดชื่อรุ่นออก เหลือแค่ ONLINE */
     .status-text { font-size: 0.75rem; color: #B59473; font-weight: 700; letter-spacing: 1.5px; }
     
-    /* ข้อ 2: ปุ่มเปลี่ยนภาษาล็อคบรรทัดเดียว */
     div.stButton > button[key="lang_btn"] { min-width: 85px !important; width: 85px !important; padding: 0px !important; height: 35px !important; }
 
     button[kind="primary"] { 
@@ -67,7 +73,7 @@ if "chat_history" not in st.session_state: st.session_state.chat_history = []
 if "lang" not in st.session_state: st.session_state.lang = "TH"
 if "json_data" not in st.session_state: st.session_state.json_data = {}
 
-# --- 2. ENGINE & LOGIN LOGIC (ข้อ 1) ---
+# --- 2. ENGINE & LOGIN LOGIC (แก้ไขข้อ 4: ลำดับการตรวจสอบสิทธิ์) ---
 CLIENT_ID = "358673361686-q6nuqn6tqefffcrm9krtcv1u11rmvt8j.apps.googleusercontent.com"
 CLIENT_SECRET = st.secrets.get("GOOGLE_CLIENT_SECRET", "")
 ADMIN_EMAIL = "bhoonkharn@gmail.com"
@@ -78,7 +84,7 @@ oauth2 = OAuth2Component(CLIENT_ID, CLIENT_SECRET, "https://accounts.google.com/
 def trigger_login():
     st.markdown("<div style='text-align:center; padding:20px; border:1px solid var(--bk-gold); border-radius:10px; background:rgba(181,148,115,0.05);'>", unsafe_allow_html=True)
     st.markdown("### 🔒 สิทธิ์ใช้งานฟรีหมดแล้ว")
-    st.write("กรุณาเข้าสู่ระบบเพื่อใช้งานต่อและบันทึกประวัติการวิเคราะห์")
+    st.write("กรุณาเข้าสู่ระบบเพื่อใช้งานต่อและบันทึกประวัติ")
     res = oauth2.authorize_button(
         name="Sign in with Google",
         icon="https://www.iconpacks.net/icons/2/free-google-icon-2039-thumb.png",
@@ -92,14 +98,15 @@ def trigger_login():
         st.session_state["auth"] = res["token"]
         st.rerun()
 
+# จัดการข้อมูล User ทันทีที่ล็อกอิน
 if "auth" in st.session_state and "user_info" not in st.session_state:
     try:
         payload = st.session_state["auth"]["id_token"].split(".")[1]
         payload += "=" * ((4 - len(payload) % 4) % 4)
         st.session_state["user_info"] = json.loads(base64.urlsafe_b64decode(payload).decode('utf-8'))
-    except: st.session_state["user_info"] = {"email": "guest", "name": "User"}
+    except: st.session_state["user_info"] = {"email": "user", "name": "User"}
 
-# ข้อ 1: Model Hunter (ค้นหารุ่นใหม่ก่อนเสมอ)
+# ระบบค้นหาโมเดล (ใหม่สุดก่อนเสมอ)
 def get_engine():
     try:
         genai.configure(api_key=API_KEY)
@@ -111,16 +118,13 @@ def get_engine():
             tier = 0 if 'flash' in name else (1 if 'pro' in name else 2)
             return (v, -tier)
         
-        models.sort(key=model_rank, reverse=True) # ใหม่สุดอยู่บน
+        models.sort(key=model_rank, reverse=True)
 
         is_logged = "auth" in st.session_state
-        is_admin = st.session_state.get("user_info", {}).get("email") == ADMIN_EMAIL
-        
-        # กฎการเลือกโมเดล ( Tiering )
-        if is_admin or is_logged or st.session_state.usage_count == 0:
-            target_list = models # เริ่มค้นหาจากตัวใหม่ที่สุด
+        if is_logged or st.session_state.usage_count == 0:
+            target_list = models
         else:
-            target_list = models[::-1] # เริ่มค้นหาจากตัวเก่าที่สุด
+            target_list = models[::-1]
 
         for m_name in target_list:
             try:
@@ -173,13 +177,22 @@ with c2:
     if site: st.image(site)
 
 if st.button("RUN ANALYSIS / เริ่มการวิเคราะห์", use_container_width=True, type="primary"):
-    if st.session_state.usage_count >= 1 and "auth" not in st.session_state:
+    # แก้ไขข้อ 4: ตรวจสอบสถานะล็อกอินก่อนจำนวนการใช้งาน
+    if "auth" not in st.session_state and st.session_state.usage_count >= 1:
         trigger_login()
     elif bp or site:
         with st.spinner("AI กำลังวิเคราะห์..."):
             try:
-                # ข้อ 2, 3: วิเคราะห์งานถัดไป 3 ข้อ + วัสดุ 5-7 รายการ
-                prompt = 'วิเคราะห์ภาพเทียบกันและตอบเป็น JSON ภาษาไทย: {"analysis":[], "risk":[], "checklist":[], "standard":[], "owner_guide":{"must_know":[], "self_check_manual":[], "special_advice":[]}, "next_3_tasks":["1","2","3"], "smart_materials":[{"name":"ชื่อวัสดุ", "unit_price":"฿..."}]}'
+                # แก้ไขข้อ 2, 3: แยกหมวดงานถัดไป และบังคับวัสดุ 5-7 อย่าง
+                prompt = """วิเคราะห์ภาพเทียบกันและตอบเป็น JSON ภาษาไทย: 
+                {
+                    "analysis":[], "risk":[], "checklist":[], "standard":[], 
+                    "owner_guide":{"must_know":[], "self_check_manual":[], "special_advice":[]}, 
+                    "current_task": ["หัวข้องานที่กำลังทำอยู่ตอนนี้"], 
+                    "next_task_from_this": ["หัวข้องานที่จะเกิดขึ้นถัดจากงานนี้"],
+                    "smart_materials":[{"name":"ชื่อวัสดุ", "unit_price":"฿..."}]
+                } 
+                ใน smart_materials ต้องส่งมาอย่างน้อย 5-7 รายการ"""
                 img_inp = Image.open(site) if site else Image.open(bp)
                 res = st.session_state.engine.generate_content([prompt, img_inp], generation_config={"response_mime_type": "application/json"})
                 st.session_state.json_data = json.loads(res.text)
@@ -206,7 +219,6 @@ if st.session_state.json_data:
     render_sec("📝 เทคนิคการตรวจงาน", "checklist")
     render_sec("🏗️ มาตรฐานวิศวกรรม", "standard")
     
-    # ข้อ 6: รวมหมวดเจ้าของบ้าน
     if "owner_guide" in d:
         st.markdown("<div class='section-header'>🏠 สิ่งที่เจ้าของบ้านควรรู้และคู่มือตรวจสอบ</div>", unsafe_allow_html=True)
         g = d["owner_guide"]
@@ -220,23 +232,25 @@ if st.session_state.json_data:
             st.markdown("**💡 คำแนะนำเพิ่มเติม:**")
             st.info("\n".join(g["special_advice"]))
 
-    # ข้อ 3: งานลำดับถัดไป 3 ขั้นตอน
-    if "next_3_tasks" in d:
-        st.markdown("<div class='section-header'>🏗️ งานลำดับถัดไป (เตรียมตัว 3 ขั้นตอน)</div>", unsafe_allow_html=True)
-        for i, t in enumerate(d["next_3_tasks"], 1):
-            st.markdown(f"<div class='owner-box'><b>{i}. {t}</b></div>", unsafe_allow_html=True)
+    # แก้ไขข้อ 2: แยกหมวดงานปัจจุบันและงานถัดไป
+    if "current_task" in d:
+        st.markdown("<div class='section-header'>🏗️ งานปัจจุบัน</div>", unsafe_allow_html=True)
+        for i in d["current_task"]: st.markdown(f"<div class='owner-box'><b>{i}</b></div>", unsafe_allow_html=True)
+    
+    if "next_task_from_this" in d:
+        st.markdown("<div class='section-header'>🏗️ งานถัดไปจากงานนี้</div>", unsafe_allow_html=True)
+        for i in d["next_task_from_this"]: st.markdown(f"<div class='owner-box'><b>{i}</b></div>", unsafe_allow_html=True)
 
-    # ข้อ 2, 4: วัสดุ 5-7 รายการพร้อมราคา
+    # แก้ไขข้อ 3: วัสดุ 5-7 รายการ
     if "smart_materials" in d:
         st.markdown("<div class='section-header'>🗓️ รายการวัสดุและประมาณการราคา</div>", unsafe_allow_html=True)
-        for item in d["smart_materials"][:7]:
+        for item in d["smart_materials"]:
             url = f"https://www.google.com/search?q={item['name']}+ราคา"
             st.markdown(f"<div class='mat-item'><a href='{url}' target='_blank' class='mat-link'>{item['name']}</a> <span class='mat-price'>{item.get('unit_price','')}</span></div>", unsafe_allow_html=True)
 
-    # --- 6. AI CHAT (ข้อ 3: วางเหนือ Footer) ---
+    # --- 6. AI CHAT ---
     st.divider()
     st.markdown("<div class='section-header'>💬 ปรึกษา AI เพิ่มเติม</div>", unsafe_allow_html=True)
-    
     for msg in st.session_state.chat_history:
         with st.chat_message(msg["role"]): st.markdown(msg["content"])
 
@@ -253,7 +267,7 @@ if st.session_state.json_data:
                 st.markdown(response.text)
                 st.session_state.chat_history.append({"role": "assistant", "content": response.text})
 
-# --- 7. FOOTER (ข้อ 4 & 5) ---
+# --- 7. FOOTER ---
 st.markdown(f"""
 <div class='footer-box'>
     <div style='color:var(--bk-gold); font-weight:700; font-size:1.1rem;'>
@@ -261,7 +275,7 @@ st.markdown(f"""
     </div>
     <div style='font-size:0.7rem; color:#666; max-width:800px; margin:15px auto; line-height:1.5;'>
         <b>หมายเหตุ:</b> ระบบ AI ให้คำแนะนำเบื้องต้นเท่านั้น ไม่สามารถแทนที่การตรวจสอบโดยวิศวกรวิชาชีพได้ 
-        กรุณาปรึกษาผู้เชี่ยวชาญก่อนดำเนินการใดๆ | Version 2.1 Final 1.1
+        กรุณาปรึกษาผู้เชี่ยวชาญก่อนดำเนินการใดๆ | Version 2.2 Final 1.2
     </div>
 </div>
 """, unsafe_allow_html=True)
