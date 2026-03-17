@@ -37,7 +37,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- 2. ENGINE (ระบบอัจฉริยะ: ค้นหาโมเดลเผื่ออนาคต + เน้นประหยัด) ---
-API_KEY = "AIzaSyC1SVrdU2iUOuvHCVnk0BfFE93vMlImEEc"
+API_KEY = "AIzaSyAmP2PfPsg3-AYlrSg9IQ24x-EKYD1Bw1U"
 
 def init_ai_engine():
     try:
