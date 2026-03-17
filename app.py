@@ -1,10 +1,10 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-# ตั้งค่าหน้ากระดาษให้เต็มจอ
+# 1. ตั้งค่าหน้าจอ Streamlit
 st.set_page_config(layout="wide", page_title="BHOON KHARN AI")
 
-# รวมร่างโค้ด HTML/JS (Final 2) เข้ามาในตัวแปร html_code
+# 2. รวมร่าง HTML + กุญแจ Firebase + ระบบตรวจสอบ Error
 html_code = """
 <!DOCTYPE html>
 <html lang="th">
@@ -21,6 +21,7 @@ html_code = """
     </style>
 </head>
 <body class="min-h-screen pb-10">
+
     <div id="login-section" class="flex flex-col items-center justify-center min-h-screen">
         <div class="glass-card p-8 rounded-2xl shadow-2xl w-full max-w-md text-center">
             <h1 class="text-4xl font-bold gradient-text mb-2">BHOON KHARN AI</h1>
@@ -116,6 +117,7 @@ html_code = """
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
+        // กุญแจของคุณ
         const firebaseConfig = {
             apiKey: "AIzaSyDHSZ6VGPTzku5WP-GSEP4tNicqvDbFIYg",
             authDomain: "gen-lang-client-0559819500.firebaseapp.com",
@@ -135,9 +137,15 @@ html_code = """
         const loginSection = document.getElementById('login-section');
         const mainContent = document.getElementById('main-content');
 
+        // ฟังก์ชัน Login พร้อมระบบแจ้ง Error แบบละเอียด
         loginBtn.addEventListener('click', async () => {
-            try { await signInWithPopup(auth, provider); } 
-            catch (error) { alert("เกิดข้อผิดพลาดในการเข้าสู่ระบบ"); }
+            try { 
+                await signInWithPopup(auth, provider); 
+            } catch (error) { 
+                // ถ้าพัง จะแจ้งรหัสออกมาให้เราแก้ได้ถูกจุดครับ
+                alert("เกิดข้อผิดพลาด!\\nCode: " + error.code + "\\nMessage: " + error.message);
+                console.error(error);
+            }
         });
 
         logoutBtn.addEventListener('click', () => signOut(auth));
@@ -152,6 +160,7 @@ html_code = """
             }
         });
 
+        // ระบบดูภาพตัวอย่าง
         document.getElementById('imageInput').addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (file) {
@@ -168,5 +177,5 @@ html_code = """
 </html>
 """
 
-# คำสั่งสำหรับรัน HTML บนหน้า Streamlit
+# 3. สั่งให้ Streamlit แสดงผลหน้าเว็บ
 components.html(html_code, height=1200, scrolling=True)
