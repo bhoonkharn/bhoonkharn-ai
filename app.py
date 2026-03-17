@@ -3,8 +3,10 @@ import google.generativeai as genai
 from PIL import Image
 import json
 import re
+import base64
+from streamlit_oauth import OAuth2Component
 
-# --- 1. CONFIG & STYLE (เน้นแก้ Bug ตัวหนังสือและสีปุ่ม) ---
+# --- 1. CONFIG & STYLE (ปรับปรุงตามข้อ 2, 3, 5, 6) ---
 st.set_page_config(
     page_title="BHOON KHARN AI", 
     page_icon="logo.png", 
@@ -27,7 +29,9 @@ st.markdown("""
     
     .section-header { color: var(--bk-gold); font-size: 1.15rem; font-weight: 700; margin-top: 30px; margin-bottom: 15px; border-bottom: 1px solid rgba(181, 148, 115, 0.3); padding-bottom: 10px; }
     
-    /* ข้อ 6: แก้ไข Bug ตัวหนังสือแนวตั้ง */
+    /* ข้อ 2: กรอบพื้นหลังสำหรับ Browse File */
+    .upload-box { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(181, 148, 115, 0.2); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+
     .content-list { line-height: 1.8; color: #E0E0E0; list-style-type: none; padding-left: 0; margin-bottom: 25px; display: block; width: 100%; }
     .content-list li { margin-bottom: 12px; padding-left: 20px; border-left: 3px solid var(--bk-gold); display: block; white-space: normal; }
     
@@ -35,11 +39,7 @@ st.markdown("""
     .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #28a745; box-shadow: 0 0 8px #28a745; margin-right: 8px; }
     .status-text { font-size: 0.75rem; color: #B59473; font-weight: 700; letter-spacing: 1.5px; }
     
-    /* ข้อ 2: ล็อคขนาดปุ่มเปลี่ยนภาษา */
-    .lang-btn-container { width: 60px !important; display: inline-block; }
-    button[kind="secondary"] { width: 60px !important; height: 35px !important; }
-
-    /* ข้อ 3: ปุ่มเริ่มการวิเคราะห์สีทองพรีเมียม (BK-GOLD) */
+    /* ปุ่มวิเคราะห์สีทองพรีเมียม (BK-GOLD) */
     button[kind="primary"] { 
         background-color: rgba(181, 148, 115, 0.1) !important; 
         color: var(--bk-gold) !important; 
@@ -49,37 +49,64 @@ st.markdown("""
         padding: 0.6rem 2rem !important;
         width: 100% !important;
     }
-    button[kind="primary"]:hover { 
-        background-color: var(--bk-gold) !important; 
-        color: var(--bk-dark) !important; 
-        box-shadow: 0 0 15px rgba(181, 148, 115, 0.3);
-    }
+    button[kind="primary"]:hover { background-color: var(--bk-gold) !important; color: var(--bk-dark) !important; }
 
-    /* ข้อ 7: ลิงก์ราคาวัสดุสะอาดตา */
-    .mat-link { color: var(--bk-gold); text-decoration: none; font-weight: 700; border-bottom: 1px dashed var(--bk-gold); padding-bottom: 2px; transition: 0.3s; }
-    .mat-link:hover { color: #FFFFFF; border-bottom: 1px solid #FFFFFF; }
+    /* ข้อ 4: พรีวิววัสดุและราคา */
+    .mat-item { margin-bottom: 20px; }
+    .mat-link { color: var(--bk-gold); text-decoration: none; font-weight: 700; font-size: 1.1rem; }
+    .mat-price { color: #28a745; font-size: 0.9rem; font-weight: 700; margin-left: 10px; }
+    .mat-preview { color: #A09080; font-size: 0.85rem; margin-top: 5px; font-style: italic; line-height: 1.4; }
     
     .owner-box { border-left: 4px solid var(--bk-gold); padding: 5px 20px; background: rgba(181, 148, 115, 0.05); margin: 20px 0; border-radius: 0 10px 10px 0; width: 100%; }
+    
+    /* ข้อ 5: Footer & Contact */
+    .footer-box { text-align: center; margin-top: 60px; padding: 40px 0; border-top: 1px solid rgba(181, 148, 115, 0.1); }
+    .disclaimer { font-size: 0.7rem; color: #666; max-width: 700px; margin: 15px auto; line-height: 1.5; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- Initial State ---
-if "usage_count" not in st.session_state: st.session_state.usage_count = 0
-if "lang" not in st.session_state: st.session_state.lang = "TH"
-if "json_data" not in st.session_state: st.session_state.json_data = {}
-if "is_admin" not in st.session_state: st.session_state.is_admin = True
+# --- 2. ระบบ LOGIN GOOGLE (ข้อ 1) ---
+CLIENT_ID = "358673361686-q6nuqn6tqefffcrm9krtcv1u11rmvt8j.apps.googleusercontent.com"
+CLIENT_SECRET = st.secrets.get("GOOGLE_CLIENT_SECRET", "")
+ADMIN_EMAIL = "bhoonkharn@gmail.com"
 
-# --- 2. ENGINE (Dynamic Model Hunter) ---
+oauth2 = OAuth2Component(CLIENT_ID, CLIENT_SECRET, "https://accounts.google.com/o/oauth2/v2/auth", "https://oauth2.googleapis.com/token", "https://oauth2.googleapis.com/token")
+
+if "auth" not in st.session_state:
+    st.markdown("<br><br><br><br><br>", unsafe_allow_html=True)
+    st.markdown("<div class='main-title'>BHOON KHARN AI</div>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center; color:#A09080; letter-spacing:3px;'>PRIVATE SYSTEM ACCESS</p>", unsafe_allow_html=True)
+    l_c1, l_c2, l_c3 = st.columns([1.2, 1, 1.2])
+    with l_c2:
+        res = oauth2.authorize_button(
+            name="Sign in with Google",
+            icon="https://www.iconpacks.net/icons/2/free-google-icon-2039-thumb.png",
+            redirect_uri="https://bhoonkharn-ai.streamlit.app", 
+            scope="openid email profile",
+            key="google_login",
+            extras_params={"prompt": "select_account"}
+        )
+    if res:
+        st.session_state["auth"] = res["token"]
+        st.rerun()
+    st.stop()
+
+# ถอดรหัส User Info (สิทธิ์เข้าใช้งาน)
+if "user_info" not in st.session_state:
+    try:
+        payload = st.session_state["auth"]["id_token"].split(".")[1]
+        payload += "=" * ((4 - len(payload) % 4) % 4)
+        st.session_state["user_info"] = json.loads(base64.urlsafe_b64decode(payload).decode('utf-8'))
+    except:
+        st.session_state["user_info"] = {"email": "guest", "name": "Guest User"}
+
+# --- 3. ENGINE (Dynamic Model Hunter - Privilege Logic) ---
 API_KEY = st.secrets.get("GEMINI_API_KEY", "")
 
 def init_ai_engine():
     try:
         genai.configure(api_key=API_KEY)
-        try:
-            raw_models = [m.name.replace("models/", "") for m in genai.list_models() 
-                         if 'generateContent' in m.supported_generation_methods and 'gemini' in m.name.lower()]
-        except:
-            raw_models = ["gemini-3-flash-preview", "gemini-1.5-flash", "gemini-1.5-pro"]
+        raw_models = [m.name.replace("models/", "") for m in genai.list_models() if 'generateContent' in m.supported_generation_methods and 'gemini' in m.name.lower()]
         
         def sort_logic(name):
             v_match = re.search(r'(\d+\.\d+)', name)
@@ -88,69 +115,90 @@ def init_ai_engine():
             return (v, -tier)
         
         raw_models.sort(key=sort_logic, reverse=True)
-        target_list = raw_models if (st.session_state.is_admin or st.session_state.usage_count == 0) else raw_models[::-1]
+        
+        # กฎสิทธิ์ผู้ใช้ (ข้อ 1)
+        email = st.session_state["user_info"].get("email", "")
+        if email == ADMIN_EMAIL or st.session_state.get("usage_count", 0) == 0:
+            target_list = raw_models # Admin/ครั้งแรก: รุ่นใหม่สุด
+        else:
+            target_list = raw_models[::-1] # User ทั่วไป: วนหารุ่นประหยัด
 
         for m_name in target_list:
             try:
                 m = genai.GenerativeModel(m_name)
                 m.generate_content("test", generation_config={"max_output_tokens": 1})
-                return m, "ONLINE" # ข้อ 1: ตัดชื่อรุ่นออก เหลือแค่ ONLINE
+                return m, "ONLINE"
             except: continue
         return None, "OFFLINE"
     except: return None, "OFFLINE"
 
+if "usage_count" not in st.session_state: st.session_state.usage_count = 0
+if "lang" not in st.session_state: st.session_state.lang = "TH"
+if "json_data" not in st.session_state: st.session_state.json_data = {}
+
 if "engine" not in st.session_state:
     st.session_state.engine, st.session_state.status = init_ai_engine()
 
-# --- 5. HEADER (ปรับปรุงมุมขวาบน) ---
+# --- HEADER (Top Nav) ---
 st.markdown(f'<div class="top-nav"><div style="display:flex;align-items:center;"><div class="status-dot"></div><span class="status-text">{st.session_state.status}</span></div></div>', unsafe_allow_html=True)
 
 nav_c1, nav_c2, nav_c3 = st.columns([9.2, 0.4, 0.4])
 with nav_c2:
-    st.markdown('<div class="lang-btn-container">', unsafe_allow_html=True)
     if st.button(st.session_state.lang, key="lang_btn"):
         st.session_state.lang = "EN" if st.session_state.lang == "TH" else "TH"
         st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
 with nav_c3:
     with st.popover("👤"):
-        st.markdown(f"**STATUS: {'ADMIN' if st.session_state.is_admin else 'USER'}**")
+        u_email = st.session_state["user_info"].get("email", "")
+        st.markdown(f"**คุณ {st.session_state['user_info'].get('name', 'USER')}**")
+        st.caption(f"{'ADMIN STATUS' if u_email == ADMIN_EMAIL else 'GENERAL ACCESS'}")
         st.divider()
         st.caption("TOOLS")
-        st.button("ถอดแบบประเมินวัสดุ (Smart BOQ) [Soon]", use_container_width=True, disabled=True)
-        st.button("เช็คราคาวัสดุ 5 ห้างหลัก [Soon]", use_container_width=True, disabled=True)
-        st.button("แจ้งเตือนสภาพอากาศคิวเทปูน [Soon]", use_container_width=True, disabled=True)
+        st.button("ถอดแบบประเมินวัสดุ [Soon]", use_container_width=True, disabled=True)
+        st.button("เช็คราคาวัสดุ 5 ห้าง [Soon]", use_container_width=True, disabled=True)
         st.divider()
-        st.button("สร้างรายงาน PDF (TH/EN)", use_container_width=True)
-        st.button("ออกจากระบบ", type="primary", use_container_width=True)
+        if st.button("SIGN OUT", type="primary", use_container_width=True):
+            del st.session_state["auth"]
+            st.rerun()
 
-# --- MAIN UI ---
+# --- MAIN UI (ข้อ 2: ปรับกรอบ Upload) ---
 st.markdown("<div class='main-title'>BHOON KHARN AI</div>", unsafe_allow_html=True)
 st.markdown("<div class='story-text'>Construction Inspection Intelligence</div>", unsafe_allow_html=True)
 
 c1, c2 = st.columns(2)
 with c1:
+    st.markdown('<div class="upload-box">', unsafe_allow_html=True)
     st.markdown("<p style='text-align:center; color:var(--bk-gold); font-weight:700;'>📋 BLUEPRINT / แปลน</p>", unsafe_allow_html=True)
     bp = st.file_uploader("BP", type=['jpg','jpeg','png','pdf'], label_visibility="collapsed")
+    st.markdown('</div>', unsafe_allow_html=True)
     if bp and bp.type != "application/pdf": st.image(bp)
 with c2:
+    st.markdown('<div class="upload-box">', unsafe_allow_html=True)
     st.markdown("<p style='text-align:center; color:var(--bk-gold); font-weight:700;'>📸 SITE PHOTO / หน้างาน</p>", unsafe_allow_html=True)
     site = st.file_uploader("SITE", type=['jpg','jpeg','png'], label_visibility="collapsed")
+    st.markdown('</div>', unsafe_allow_html=True)
     if site: st.image(site)
 
-# ข้อ 3: ปุ่มเริ่มการวิเคราะห์สีทอง
 if st.button("RUN ANALYSIS / เริ่มการวิเคราะห์", use_container_width=True, type="primary"):
     if bp or site:
-        with st.spinner("ANALYZING..."):
+        with st.spinner("AI กำลังวิเคราะห์..."):
             try:
-                # Prompt ข้อ 4, 5, 7
+                # Prompt (ข้อ 3, 4, 6)
                 prompt = """วิเคราะห์ภาพเปรียบเทียบและตอบเป็น JSON ภาษาไทย: 
                 {
                     "analysis":[], "risk":[], "checklist":[], "standard":[], 
-                    "owner_guide":[], "next_task":"", "next_materials":[], "owner_note":[]
+                    "owner_guide":{
+                        "must_know": [], 
+                        "self_check_manual": [],
+                        "special_advice": []
+                    }, 
+                    "next_3_tasks": ["งาน 1", "งาน 2", "งาน 3"], 
+                    "smart_materials": [
+                        {"name": "ชื่อวัสดุ", "unit_price": "฿...", "preview": "สรุปสเปกสั้นๆ สำหรับพรีวิว"}
+                    ]
                 }
-                - ใน owner_guide: ให้ข้อมูลสิ่งที่เจ้าของบ้านควรรู้และวิธีตรวจเอง
-                - ใน next_materials: ใส่มา 5-7 รายการ ระบุวัสดุสำหรับงานนี้และงานถัดไป"""
+                - ใน smart_materials ใส่มา 5-7 รายการครอบคลุมงานนี้และถัดไป
+                - ใน next_3_tasks ต้องมี 3 ข้อเสมอ"""
                 img_inp = Image.open(site) if site else Image.open(bp)
                 res = st.session_state.engine.generate_content([prompt, img_inp], generation_config={"response_mime_type": "application/json"})
                 st.session_state.json_data = json.loads(res.text)
@@ -158,7 +206,7 @@ if st.button("RUN ANALYSIS / เริ่มการวิเคราะห์
             except Exception as e: st.error(f"Analysis Error: {e}")
     else: st.warning("กรุณาอัปโหลดรูปภาพ")
 
-# --- 4 & 6: RESULTS DISPLAY (แก้ Bug ตัวหนังสือแนวตั้ง) ---
+# --- RESULTS (ข้อ 3, 4, 6) ---
 if st.session_state.json_data:
     d = st.session_state.json_data
     st.divider()
@@ -168,36 +216,56 @@ if st.session_state.json_data:
             st.markdown(f"<div class='section-header'>{title}</div>", unsafe_allow_html=True)
             items = d[key]
             if isinstance(items, list) and items:
-                # แก้ไข Bug ข้อ 6 โดยการบังคับ List ให้แสดงผลเต็มความกว้าง
                 html = "<ul class='content-list'>" + "".join([f"<li><b>{i}</b></li>" for i in items]) + "</ul>"
                 st.markdown(html, unsafe_allow_html=True)
-            elif items:
-                st.markdown(f"<div class='owner-box'><b>{items}</b></div>", unsafe_allow_html=True)
 
     render_sec("🔍 วิเคราะห์หน้างาน", "analysis")
     render_sec("⚠️ จุดวิกฤตที่ต้องระวัง", "risk")
     render_sec("📝 เทคนิคการตรวจงาน", "checklist")
     render_sec("🏗️ มาตรฐานวิศวกรรม", "standard")
     
-    # ข้อ 4: สิ่งที่เจ้าของบ้านควรรู้และคู่มือการตรวจสอบด้วยตัวเอง
-    render_sec("🏠 สิ่งที่เจ้าของบ้านควรรู้และคู่มือการตรวจสอบด้วยตัวเอง", "owner_guide")
-    
-    if "next_task" in d:
-        st.markdown("<div class='section-header'>🏗️ งานลำดับถัดไป</div>", unsafe_allow_html=True)
-        st.markdown(f"<div class='owner-box'><b>{d['next_task']}</b></div>", unsafe_allow_html=True)
+    # ข้อ 6: สิ่งที่เจ้าของบ้านควรรู้ (รวมหมวดย่อย)
+    if "owner_guide" in d:
+        st.markdown("<div class='section-header'>🏠 สิ่งที่เจ้าของบ้านควรรู้และคู่มือตรวจสอบ</div>", unsafe_allow_html=True)
+        g = d["owner_guide"]
+        if "must_know" in g:
+            st.markdown("**📌 ความรู้พื้นฐานสำหรับหน้างานนี้:**")
+            st.markdown("<div class='owner-box'><ul class='content-list'>" + "".join([f"<li>{i}</li>" for i in g["must_know"]]) + "</ul></div>", unsafe_allow_html=True)
+        if "self_check_manual" in g:
+            st.markdown("**✅ คู่มือการตรวจสอบด้วยตัวเอง:**")
+            st.markdown("<ul class='content-list'>" + "".join([f"<li>{i}</li>" for i in g["self_check_manual"]]) + "</ul>", unsafe_allow_html=True)
+        if "special_advice" in g:
+            st.markdown("**💡 คำแนะนำพิเศษ:**")
+            st.info("\n".join(g["special_advice"]))
 
-    # ข้อ 5 & 7: รายการวัสดุสำหรับงานนี้และงานถัดไป (5-7 รายการ)
-    if "next_materials" in d:
-        st.markdown("<div class='section-header'>🗓️ รายการวัสดุสำหรับงานนี้และงานถัดไป (เช็คราคา)</div>", unsafe_allow_html=True)
-        # แสดงรายการวัสดุพร้อมลิงก์เช็คราคา
-        for item in d["next_materials"][:7]:
-            url = f"https://www.google.com/search?q={item}+ราคา"
-            st.markdown(f"• <a href='{url}' target='_blank' class='mat-link'>{item}</a>", unsafe_allow_html=True)
+    # ข้อ 3: งานลำดับถัดไป (3 ข้อ)
+    if "next_3_tasks" in d:
+        st.markdown("<div class='section-header'>🏗️ งานลำดับถัดไป (3 ขั้นตอนถัดไป)</div>", unsafe_allow_html=True)
+        for i, task in enumerate(d["next_3_tasks"], 1):
+            st.markdown(f"<div class='owner-box'><b>{i}. {task}</b></div>", unsafe_allow_html=True)
 
-    # ข้อ 6: แก้ไข Bug คำแนะนำพิเศษ (ใช้ owner-box เพื่อความกว้างที่ถูกต้อง)
-    if "owner_note" in d:
-        st.markdown("<div class='section-header'>🏠 คำแนะนำพิเศษสำหรับเจ้าของบ้าน</div>", unsafe_allow_html=True)
-        html = "<div class='owner-box'><ul class='content-list' style='margin-bottom:0;'>" + "".join([f"<li><b>{i}</b></li>" for i in d["owner_note"]]) + "</ul></div>"
-        st.markdown(html, unsafe_allow_html=True)
+    # ข้อ 4: รายการวัสดุอัจฉริยะ (ราคา + พรีวิว)
+    if "smart_materials" in d:
+        st.markdown("<div class='section-header'>🗓️ รายการวัสดุและประมาณการราคา (เช็คราคา)</div>", unsafe_allow_html=True)
+        for item in d["smart_materials"][:7]:
+            url = f"https://www.google.com/search?q={item['name']}+ราคา"
+            st.markdown(f"""
+            <div class='mat-item'>
+                <a href='{url}' target='_blank' class='mat-link'>{item['name']}</a>
+                <span class='mat-price'>{item.get('unit_price', 'เช็คราคา')}</span>
+                <div class='mat-preview'>💡 AI Preview: {item.get('preview', '')}</div>
+            </div>
+            """, unsafe_allow_html=True)
 
-st.markdown("<div style='text-align:center; margin-top:50px; color:#4A3F35; font-size:0.75rem;'>BHOON KHARN | PRIVATE SYSTEM</div>", unsafe_allow_html=True)
+# --- 5. FOOTER & CONTACT ---
+st.markdown(f"""
+<div class='footer-box'>
+    <div style='color:var(--bk-gold); font-weight:700; font-size:1.1rem;'>BHOON KHARN | 088-777-6566</div>
+    <div class='disclaimer'>
+        <b>หมายเหตุข้อจำกัดของ AI:</b> ระบบ BHOON KHARN AI เป็นเพียงเครื่องมือช่วยประมวลผลและให้คำแนะนำเบื้องต้นจากข้อมูลภาพถ่ายเท่านั้น 
+        ผลลัพธ์ที่ได้อาจมีความคลาดเคลื่อนตามคุณภาพของรูปภาพและสภาพแสง <u>ไม่สามารถนำไปใช้อ้างอิงทางกฎหมายหรือแทนที่การตรวจสอบโดยวิศวกรผู้เชี่ยวชาญหน้างานได้</u> 
+        กรุณาปรึกษาวิศวกรหรือผู้ควบคุมงานก่อนการตัดสินใจดำเนินการใดๆ
+    </div>
+    <div style='color:#4A3F35; font-size:0.7rem; letter-spacing:2px; margin-top:20px;'>PRIVATE SYSTEM | VERSION 2.1</div>
+</div>
+""", unsafe_allow_html=True)
