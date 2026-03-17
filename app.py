@@ -36,8 +36,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. ENGINE (ระบบอัจฉริยะ: ค้นหาโมเดลเผื่ออนาคต + เน้นประหยัด) ---
-API_KEY = "AIzaSyAmP2PfPsg3-AYlrSg9IQ24x-EKYD1Bw1U"
+# แก้บรรทัด API_KEY ใน app.py ให้เป็นแบบนี้ (ห้ามใส่รหัสจริงลงไปแล้วนะครับ)
+API_KEY = st.secrets["GEMINI_API_KEY"]
 
 def init_ai_engine():
     try:
