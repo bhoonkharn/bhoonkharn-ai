@@ -2,126 +2,45 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 # 1. ตั้งค่าหน้าจอ Streamlit
-st.set_page_config(layout="wide", page_title="BHOON KHARN AI")
+st.set_page_config(layout="wide", page_title="Test Login BHOON KHARN AI")
 
-# 2. รวมร่าง HTML + กุญแจ Firebase + ระบบตรวจสอบ Error
+# 2. โค้ด HTML + JS แบบเน้นระบบ Login อย่างเดียว (ไม่มีดีไซน์ซับซ้อน)
 html_code = """
 <!DOCTYPE html>
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BHOON KHARN AI - Final 2</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
+    <title>ทดสอบ Login</title>
     <style>
-        body { font-family: 'Kanit', sans-serif; background-color: #0f172a; color: white; margin: 0; padding: 0; }
-        .glass-card { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
-        .gradient-text { background: linear-gradient(90deg, #fbbf24, #f59e0b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        body { font-family: sans-serif; text-align: center; padding: 50px; background: #f0f2f6; }
+        .hidden { display: none; }
+        .card { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); display: inline-block; }
+        button { padding: 15px 30px; font-size: 16px; cursor: pointer; border: none; border-radius: 5px; margin: 10px; font-weight: bold; }
+        #login-btn { background-color: #4285F4; color: white; }
+        #logout-btn { background-color: #dc3545; color: white; }
     </style>
 </head>
-<body class="min-h-screen pb-10">
+<body>
 
-    <div id="login-section" class="flex flex-col items-center justify-center min-h-screen">
-        <div class="glass-card p-8 rounded-2xl shadow-2xl w-full max-w-md text-center">
-            <h1 class="text-4xl font-bold gradient-text mb-2">BHOON KHARN AI</h1>
-            <p class="text-slate-400 mb-8">Construction Inspection Intelligence</p>
-            <button id="login-btn" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-6 rounded-xl transition-all transform hover:scale-105 flex items-center justify-center gap-2">
-                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/action/google.svg" class="w-6 h-6 bg-white rounded-full p-1">
-                เข้าสู่ระบบด้วย Google
-            </button>
-        </div>
+    <div id="login-section" class="card">
+        <h2>ทดสอบระบบ Login</h2>
+        <p>กดปุ่มด้านล่างเพื่อทดสอบการเข้าสู่ระบบ</p>
+        <button id="login-btn">เข้าสู่ระบบด้วย Google</button>
     </div>
 
-    <div id="main-content" class="hidden container mx-auto px-4 pt-8">
-        <div class="text-center mb-10">
-            <h1 class="text-5xl font-bold gradient-text mb-1">BHOON KHARN AI</h1>
-            <p class="text-xl text-slate-300">Construction Inspection Intelligence</p>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div class="space-y-6">
-                <div class="glass-card p-6 rounded-2xl">
-                    <h2 class="text-xl font-semibold mb-4 text-amber-400">อัปโหลดภาพตรวจงาน</h2>
-                    <input type="file" id="imageInput" class="block w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-500 file:text-white hover:file:bg-amber-600 cursor-pointer">
-                    <div id="previewContainer" class="mt-4 hidden">
-                        <img id="imagePreview" class="rounded-xl w-full border-2 border-slate-700">
-                    </div>
-                </div>
-
-                <div class="glass-card p-6 rounded-2xl">
-                    <h2 class="text-xl font-semibold mb-4 text-amber-400">งานลำดับถัดไป</h2>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                        <div class="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
-                            <h3 class="font-bold text-amber-300 mb-2 underline">งานปัจจุบัน</h3>
-                            <ul class="list-disc list-inside space-y-1 text-slate-300">
-                                <li>ติดตั้งโครงสร้างหลัก</li>
-                                <li>เตรียมหน้างานพื้น</li>
-                            </ul>
-                        </div>
-                        <div class="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
-                            <h3 class="font-bold text-blue-300 mb-2 underline">งานถัดไปจากงานนี้</h3>
-                            <ul class="list-disc list-inside space-y-1 text-slate-300">
-                                <li>เทคอนกรีตพื้น</li>
-                                <li>ติดตั้งระบบท่อ</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="space-y-6">
-                <div class="glass-card p-6 rounded-2xl overflow-x-auto">
-                    <h2 class="text-xl font-semibold mb-4 text-amber-400">รายการวัสดุและประมาณการราคา</h2>
-                    <table class="w-full text-left text-sm">
-                        <thead>
-                            <tr class="border-b border-slate-700 text-slate-400">
-                                <th class="pb-3">รายการวัสดุ</th>
-                                <th class="pb-3 text-center">จำนวน</th>
-                                <th class="pb-3 text-right">ประมาณการราคา</th>
-                            </tr>
-                        </thead>
-                        <tbody class="text-slate-300">
-                            <tr class="border-b border-slate-800/50"><td class="py-3">เหล็กเส้นฐานราก</td><td class="text-center">10 เส้น</td><td class="text-right">4,500.-</td></tr>
-                            <tr class="border-b border-slate-800/50"><td class="py-3">ปูนซีเมนต์ปอร์ตแลนด์</td><td class="text-center">50 ถุง</td><td class="text-right">7,250.-</td></tr>
-                            <tr class="border-b border-slate-800/50"><td class="py-3">หินก่อสร้าง 3/4</td><td class="text-center">5 คิว</td><td class="text-right">3,000.-</td></tr>
-                            <tr class="border-b border-slate-800/50"><td class="py-3">ทรายหยาบ</td><td class="text-center">5 คิว</td><td class="text-right">2,750.-</td></tr>
-                            <tr class="border-b border-slate-800/50"><td class="py-3">ตะปูตอกไม้/ลวดผูกเหล็ก</td><td class="text-center">5 กก.</td><td class="text-right">450.-</td></tr>
-                            <tr class="border-b border-slate-800/50"><td class="py-3">คอนกรีตผสมเสร็จ</td><td class="text-center">8 คิว</td><td class="text-right">16,000.-</td></tr>
-                            <tr><td class="py-3">แผ่นพื้นสำเร็จรูป</td><td class="text-center">20 แผ่น</td><td class="text-right">5,600.-</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <div class="glass-card p-6 rounded-2xl flex flex-col h-[300px]">
-                    <h2 class="text-lg font-semibold mb-3 text-amber-400">AI Construction Chat</h2>
-                    <div class="flex-grow bg-slate-900/50 rounded-xl mb-3 p-3 text-sm text-slate-400 overflow-y-auto" id="chatbox">
-                        ยินดีต้อนรับครับ... สอบถามเรื่องวัสดุหรืองานก่อสร้างได้เลย
-                    </div>
-                    <div class="flex gap-2">
-                        <input type="text" placeholder="พิมพ์ข้อความ..." class="flex-grow bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm">
-                        <button class="bg-blue-600 px-4 py-2 rounded-lg text-sm font-bold">ส่ง</button>
-                    </div>
-                </div>
-
-                <div class="text-center text-xs text-slate-500 space-y-1">
-                    <p>ผู้ติดต่อ: ฝ่ายควบคุมงานก่อสร้าง 0xx-xxx-xxxx</p>
-                    <p>หมายเหตุ: ข้อมูลการวิเคราะห์เบื้องต้นเพื่อความสะดวกในการวางแผน</p>
-                    <button id="logout-btn" class="mt-4 text-slate-600 hover:text-red-400 underline">ออกจากระบบ</button>
-                </div>
-            </div>
-        </div>
+    <div id="main-content" class="card hidden">
+        <h2 style="color: #28a745;">เข้าสู่ระบบสำเร็จ!</h2>
+        <p>ระบบ Login ของ Firebase ทำงานได้อย่างสมบูรณ์</p>
+        <button id="logout-btn">ออกจากระบบ</button>
     </div>
 
     <script type="module">
-        // 1. โหลด Firebase Core
+        // นำเข้าเครื่องมือจาก Firebase
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
-        import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-analytics.js";
-        
-        // 2. โหลด Firebase Auth (ส่วนที่ลืมใส่)
         import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 
-        // 3. กุญแจ Firebase (อย่าลืม! เอาของโปรเจกต์ใหม่ที่คุณเพิ่งสร้างมาใส่แทนตรงนี้นะครับ)
+        // กุญแจ Firebase 
+        // *** หมายเหตุ: ถ้าคุณสร้างโปรเจกต์ใหม่ใน Firebase แล้ว ให้นำกุญแจชุดใหม่มาใส่แทนตรงนี้นะครับ ***
         const firebaseConfig = {
             apiKey: "AIzaSyDHSZ6VGPTzku5WP-GSEP4tNicqvDbFIYg",
             authDomain: "gen-lang-client-0559819500.firebaseapp.com",
@@ -132,94 +51,19 @@ html_code = """
             measurementId: "G-N90LYXXPPF"
         };
 
-        // 4. เปิดใช้งานระบบ
+        // เริ่มต้นระบบ Firebase
         const app = initializeApp(firebaseConfig);
-        const analytics = getAnalytics(app);
         const auth = getAuth(app);
         const provider = new GoogleAuthProvider();
 
-        // 5. ผูกตัวแปรกับหน้าเว็บ (ส่วนที่ลืมใส่)
+        // เชื่อมปุ่มใน HTML กับคำสั่ง
         const loginBtn = document.getElementById('login-btn');
         const logoutBtn = document.getElementById('logout-btn');
         const loginSection = document.getElementById('login-section');
         const mainContent = document.getElementById('main-content');
 
-        // 6. ฟังก์ชัน Login พร้อมระบบแจ้ง Error แบบละเอียด
+        // สั่งให้ปุ่ม Login ทำงาน
         loginBtn.addEventListener('click', async () => {
-            try { 
-                await signInWithPopup(auth, provider); 
-            } catch (error) { 
-                alert("เกิดข้อผิดพลาด!\nCode: " + error.code + "\nMessage: " + error.message);
-                console.error(error);
-            }
-        });
-
-        // 7. ฟังก์ชัน Logout
-        logoutBtn.addEventListener('click', () => signOut(auth));
-
-        // 8. เช็คสถานะว่า Login หรือยัง
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                loginSection.classList.add('hidden');
-                mainContent.classList.remove('hidden');
-            } else {
-                loginSection.classList.remove('hidden');
-                mainContent.classList.add('hidden');
-            }
-        });
-
-        // 9. ระบบดูภาพตัวอย่าง
-        document.getElementById('imageInput').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(event) {
-                    document.getElementById('imagePreview').src = event.target.result;
-                    document.getElementById('previewContainer').classList.remove('hidden');
-                }
-                reader.readAsDataURL(file);
-            }
-        });
-    </script>
-        // ฟังก์ชัน Login พร้อมระบบแจ้ง Error แบบละเอียด
-        loginBtn.addEventListener('click', async () => {
-            try { 
-                await signInWithPopup(auth, provider); 
-            } catch (error) { 
-                // ถ้าพัง จะแจ้งรหัสออกมาให้เราแก้ได้ถูกจุดครับ
-                alert("เกิดข้อผิดพลาด!\\nCode: " + error.code + "\\nMessage: " + error.message);
-                console.error(error);
-            }
-        });
-
-        logoutBtn.addEventListener('click', () => signOut(auth));
-
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                loginSection.classList.add('hidden');
-                mainContent.classList.remove('hidden');
-            } else {
-                loginSection.classList.remove('hidden');
-                mainContent.classList.add('hidden');
-            }
-        });
-
-        // ระบบดูภาพตัวอย่าง
-        document.getElementById('imageInput').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(event) {
-                    document.getElementById('imagePreview').src = event.target.result;
-                    document.getElementById('previewContainer').classList.remove('hidden');
-                }
-                reader.readAsDataURL(file);
-            }
-        });
-    </script>
-</body>
-</html>
-"""
-
-# 3. สั่งให้ Streamlit แสดงผลหน้าเว็บ
-components.html(html_code, height=1200, scrolling=True)
+            try {
+                await signInWithPopup(auth, provider);
+            } catch (error) {
